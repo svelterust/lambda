@@ -8,6 +8,7 @@ winit = { version = "0.30", default-features = false, features = ["rwh_06", "way
 wgpu = { version = "29", default-features = false, features = ["wgsl", "vulkan"] }
 pollster = "0.4"
 anyhow = "1"
+bytemuck = { version = "1", features = ["derive"] }
 
 [lib]
 crate-type = ["cdylib", "rlib"]

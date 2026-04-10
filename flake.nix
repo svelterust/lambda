@@ -10,6 +10,7 @@
       buildInputs = with pkgs; [
         wayland
         libxkbcommon
+        vulkan-loader
       ];
     in {
       devShells.${system}.default = pkgs.mkShell {

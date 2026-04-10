@@ -1,4 +1,4 @@
-use crate::gpu::{DrawCmd, Gpu};
+use crate::{DrawCmd, gpu::Gpu};
 use std::sync::Arc;
 use winit::{
     application::ApplicationHandler,

@@ -2,16 +2,7 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use wgpu::util::DeviceExt;
 use winit::window::Window;
-
-#[repr(C)]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct DrawCmd {
-    pub x: f32,
-    pub y: f32,
-    pub w: f32,
-    pub h: f32,
-    pub color: u32,
-}
+use crate::DrawCmd;
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]

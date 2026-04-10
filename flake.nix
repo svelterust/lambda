@@ -1,13 +1,19 @@
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { nixpkgs, ... }:
+  outputs = { nixpkgs, rust-overlay, ... }:
     let
       system = "x86_64-linux";
-      pkgs = nixpkgs.legacyPackages.${system};
+      overlays = [ rust-overlay.overlays.default ];
+      pkgs = import nixpkgs { inherit system overlays; };
       buildInputs = with pkgs; [
+		sbcl
         wayland
         libxkbcommon
         vulkan-loader

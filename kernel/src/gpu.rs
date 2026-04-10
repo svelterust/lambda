@@ -1,8 +1,8 @@
-use std::sync::Arc;
+use crate::DrawCmd;
 use anyhow::{Context, Result};
+use std::sync::Arc;
 use wgpu::util::DeviceExt;
 use winit::window::Window;
-use crate::DrawCmd;
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -113,17 +113,20 @@ impl Gpu {
                     array_stride: std::mem::size_of::<DrawCmd>() as u64,
                     step_mode: wgpu::VertexStepMode::Instance,
                     attributes: &[
-                        wgpu::VertexAttribute { // pos: vec2<f32>
+                        wgpu::VertexAttribute {
+                            // pos: vec2<f32>
                             format: wgpu::VertexFormat::Float32x2,
                             offset: 0,
                             shader_location: 0,
                         },
-                        wgpu::VertexAttribute { // size: vec2<f32>
+                        wgpu::VertexAttribute {
+                            // size: vec2<f32>
                             format: wgpu::VertexFormat::Float32x2,
                             offset: 8,
                             shader_location: 1,
                         },
-                        wgpu::VertexAttribute { // color: u32
+                        wgpu::VertexAttribute {
+                            // color: u32
                             format: wgpu::VertexFormat::Uint32,
                             offset: 16,
                             shader_location: 2,

@@ -14,12 +14,15 @@ pub struct DrawCmd {
 
 use winit::{
     event_loop::EventLoop,
-    platform::pump_events::{EventLoopExtPumpEvents, PumpStatus},
+    platform::{
+        pump_events::{EventLoopExtPumpEvents, PumpStatus},
+        wayland::EventLoopBuilderExtWayland,
+    },
 };
 
 #[unsafe(no_mangle)]
 pub extern "C" fn lambda_run() {
-    let Ok(mut event_loop) = EventLoop::new() else {
+    let Ok(mut event_loop) = EventLoop::builder().with_any_thread(true).build() else {
         eprintln!("Failed to create event loop");
         return;
     };

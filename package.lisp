@@ -1,2 +1,3 @@
 (defpackage :lambda
-			(:use :cl))
+  (:use :cl)
+  (:export :run))

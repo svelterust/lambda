@@ -1,0 +1,10 @@
+[package]
+name = "lambda"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+winit = { version = "0.30", default-features = false, features = ["wayland", "wayland-dlopen", "wayland-csd-adwaita"] }
+
+[lib]
+crate-type = ["cdylib", "rlib"]

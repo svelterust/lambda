@@ -58,7 +58,7 @@
   (declare (type (unsigned-byte 32) id rgba))
   (%text-color id rgba))
 
-(defun text-metrics (id font-size line-height)
+(defun text-metrics (id font-size &optional (line-height (* font-size 1.4)))
   "Set font size and line height."
   (declare (type (unsigned-byte 32) id)
            (type single-float font-size line-height))

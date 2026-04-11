@@ -82,7 +82,7 @@ impl Text {
                             right: w as i32,
                             bottom: h as i32,
                         },
-                        color: Color::rgb(255, 255, 255),
+            color: Color::rgb(0, 0, 0),
                     },
                 );
                 id

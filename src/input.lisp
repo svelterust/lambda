@@ -91,5 +91,6 @@ keywords, MODS as modifier bits, and X Y as floats. Replaces any previous handle
        (cffi:defcallback input-tick :void ()
          (dolist (,ev (poll-events))
            (destructuring-bind (,type ,key ,mods ,x ,y) ,ev
+             (declare (ignorable ,type ,key ,mods ,x ,y))
              ,@body)))
        (%set-input-callback (cffi:callback input-tick)))))

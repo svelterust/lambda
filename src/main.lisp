@@ -1,6 +1,7 @@
 (in-package :lambda)
 
-(defparameter *x* 700.0)
+(declaim (type single-float *x* *y*))
+(defparameter *x* 100.0)
 (defparameter *y* 500.0)
 
 (with-input (type key mods x y)

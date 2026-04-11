@@ -60,111 +60,6 @@ impl Text {
         }));
     }
 
-    pub fn ffi_create(font_size: f32, line_height: f32) -> u32 {
-        match text_lock() {
-            Some(mut text) => {
-                let id = text.next_id;
-                text.next_id += 1;
-                let w = text.width;
-                let h = text.height;
-                let mut buffer =
-                    Buffer::new(&mut text.font_system, Metrics::new(font_size, line_height));
-                buffer.set_size(&mut text.font_system, Some(w as f32), Some(h as f32));
-                text.slots.insert(
-                    id,
-                    TextSlot {
-                        buffer,
-                        x: 0.0,
-                        y: 0.0,
-                        bounds: TextBounds {
-                            left: 0,
-                            top: 0,
-                            right: w as i32,
-                            bottom: h as i32,
-                        },
-            color: Color::rgb(0, 0, 0),
-                    },
-                );
-                id
-            }
-            None => 0,
-        }
-    }
-
-    pub fn ffi_destroy(id: u32) {
-        if let Some(mut text) = text_lock() {
-            text.slots.remove(&id);
-        }
-    }
-
-    pub fn ffi_set(id: u32, ptr: *const u8, len: u32) {
-        let bytes = unsafe { std::slice::from_raw_parts(ptr, len as usize) };
-        let Ok(s) = std::str::from_utf8(bytes) else {
-            log::error!("text_set: invalid UTF-8");
-            return;
-        };
-        if let Some(mut text) = text_lock() {
-            // safe: splitting borrows between font_system and slots
-            let fs = &mut text.font_system as *mut FontSystem;
-            if let Some(slot) = text.slots.get_mut(&id) {
-                slot.buffer.set_text(
-                    unsafe { &mut *fs },
-                    s,
-                    &Attrs::new().family(Family::Name("JetBrains Mono NL")),
-                    Shaping::Advanced,
-                    None,
-                );
-                slot.buffer.shape_until_scroll(unsafe { &mut *fs }, false);
-            }
-        }
-    }
-
-    pub fn ffi_set_position(id: u32, x: f32, y: f32) {
-        if let Some(mut text) = text_lock()
-            && let Some(slot) = text.slots.get_mut(&id)
-        {
-            slot.x = x;
-            slot.y = y;
-        }
-    }
-
-    pub fn ffi_set_bounds(id: u32, left: i32, top: i32, right: i32, bottom: i32) {
-        if let Some(mut text) = text_lock()
-            && let Some(slot) = text.slots.get_mut(&id)
-        {
-            slot.bounds = TextBounds {
-                left,
-                top,
-                right,
-                bottom,
-            };
-        }
-    }
-
-    pub fn ffi_set_color(id: u32, rgba: u32) {
-        if let Some(mut text) = text_lock()
-            && let Some(slot) = text.slots.get_mut(&id)
-        {
-            let r = ((rgba >> 24) & 0xFF) as u8;
-            let g = ((rgba >> 16) & 0xFF) as u8;
-            let b = ((rgba >> 8) & 0xFF) as u8;
-            let a = (rgba & 0xFF) as u8;
-            slot.color = Color::rgba(r, g, b, a);
-        }
-    }
-
-    pub fn ffi_set_metrics(id: u32, font_size: f32, line_height: f32) {
-        if let Some(mut text) = text_lock() {
-            // safe: splitting borrows between font_system and slots
-            let fs = &mut text.font_system as *mut FontSystem;
-            if let Some(slot) = text.slots.get_mut(&id) {
-                slot.buffer
-                    .set_metrics(unsafe { &mut *fs }, Metrics::new(font_size, line_height));
-                slot.buffer.shape_until_scroll(unsafe { &mut *fs }, false);
-            }
-        }
-    }
-
     pub fn resize(&mut self, width: u32, height: u32) {
         self.width = width;
         self.height = height;
@@ -214,5 +109,114 @@ impl Text {
 
     pub fn trim(&mut self) {
         self.atlas.trim();
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn lambda_text_create(font_size: f32, line_height: f32) -> u32 {
+    match text_lock() {
+        Some(mut text) => {
+            let id = text.next_id;
+            text.next_id += 1;
+            let w = text.width;
+            let h = text.height;
+            let mut buffer =
+                Buffer::new(&mut text.font_system, Metrics::new(font_size, line_height));
+            buffer.set_size(&mut text.font_system, Some(w as f32), Some(h as f32));
+            text.slots.insert(
+                id,
+                TextSlot {
+                    buffer,
+                    x: 0.0,
+                    y: 0.0,
+                    bounds: TextBounds {
+                        left: 0,
+                        top: 0,
+                        right: w as i32,
+                        bottom: h as i32,
+                    },
+                    color: Color::rgb(0, 0, 0),
+                },
+            );
+            id
+        }
+        None => 0,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn lambda_text_destroy(id: u32) {
+    if let Some(mut text) = text_lock() {
+        text.slots.remove(&id);
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn lambda_text_set(id: u32, ptr: *const u8, len: u32) {
+    let bytes = unsafe { std::slice::from_raw_parts(ptr, len as usize) };
+    let Ok(s) = std::str::from_utf8(bytes) else {
+        return;
+    };
+    if let Some(mut text) = text_lock() {
+        let fs = &mut text.font_system as *mut FontSystem;
+        if let Some(slot) = text.slots.get_mut(&id) {
+            slot.buffer.set_text(
+                unsafe { &mut *fs },
+                s,
+                &Attrs::new().family(Family::Name("JetBrains Mono NL")),
+                Shaping::Advanced,
+                None,
+            );
+            slot.buffer.shape_until_scroll(unsafe { &mut *fs }, false);
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn lambda_text_position(id: u32, x: f32, y: f32) {
+    if let Some(mut text) = text_lock()
+        && let Some(slot) = text.slots.get_mut(&id)
+    {
+        slot.x = x;
+        slot.y = y;
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn lambda_text_bounds(id: u32, left: i32, top: i32, right: i32, bottom: i32) {
+    if let Some(mut text) = text_lock()
+        && let Some(slot) = text.slots.get_mut(&id)
+    {
+        slot.bounds = TextBounds {
+            left,
+            top,
+            right,
+            bottom,
+        };
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn lambda_text_color(id: u32, rgba: u32) {
+    if let Some(mut text) = text_lock()
+        && let Some(slot) = text.slots.get_mut(&id)
+    {
+        let r = ((rgba >> 24) & 0xFF) as u8;
+        let g = ((rgba >> 16) & 0xFF) as u8;
+        let b = ((rgba >> 8) & 0xFF) as u8;
+        let a = (rgba & 0xFF) as u8;
+        slot.color = Color::rgba(r, g, b, a);
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn lambda_text_metrics(id: u32, font_size: f32, line_height: f32) {
+    if let Some(mut text) = text_lock() {
+        let fs = &mut text.font_system as *mut FontSystem;
+        if let Some(slot) = text.slots.get_mut(&id) {
+            slot.buffer
+                .set_metrics(unsafe { &mut *fs }, Metrics::new(font_size, line_height));
+            slot.buffer.shape_until_scroll(unsafe { &mut *fs }, false);
+        }
     }
 }

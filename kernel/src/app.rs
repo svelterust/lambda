@@ -21,39 +21,27 @@ pub struct Lambda {
 impl ApplicationHandler for Lambda {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.window.is_none() {
-            log::info!("Creating window");
             let attrs = Window::default_attributes().with_title("Lambda");
             match event_loop.create_window(attrs) {
                 Ok(window) => {
                     let window = Arc::new(window);
-                    log::info!("Window created, initializing GPU");
                     match Gpu::new(&window) {
                         Ok(gpu) => {
-                            log::info!("GPU ready");
                             self.gpu = Some(gpu);
                             window.request_redraw();
                             self.window = Some(window);
                         }
-                        Err(err) => {
-                            log::error!("GPU init failed: {err:?}");
-                            event_loop.exit();
-                        }
+                        Err(_) => event_loop.exit(),
                     }
                 }
-                Err(err) => {
-                    log::error!("Window creation failed: {err:?}");
-                    event_loop.exit();
-                }
+                Err(_) => event_loop.exit(),
             }
         }
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
         match event {
-            WindowEvent::CloseRequested => {
-                log::info!("Close requested");
-                event_loop.exit();
-            }
+            WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::Resized(size) => {
                 if let Some(gpu) = self.gpu.as_mut() {
                     gpu.resize(size.width, size.height);

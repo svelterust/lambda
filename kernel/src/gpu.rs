@@ -12,18 +12,14 @@ pub struct Gpu {
 
 impl Gpu {
     pub fn new(window: &Arc<Window>) -> Result<Self> {
-        log::info!("Creating wgpu instance (Vulkan)");
         let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
         desc.backends = wgpu::Backends::VULKAN;
         let instance = wgpu::Instance::new(desc);
-        log::info!("Creating surface");
         let surface = instance.create_surface(window.clone())?;
-        log::info!("Requesting adapter");
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
             compatible_surface: Some(&surface),
             ..Default::default()
         }))?;
-        log::info!("Requesting device");
         let (device, queue) =
             pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
                 label: Some("lambda"),
@@ -32,12 +28,6 @@ impl Gpu {
         let size = window.inner_size();
         let caps = surface.get_capabilities(&adapter);
         let &format = caps.formats.first().context("No surface format")?;
-        log::info!(
-            "Configuring surface: {}x{} {:?}",
-            size.width,
-            size.height,
-            format
-        );
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format,
@@ -49,9 +39,7 @@ impl Gpu {
             desired_maximum_frame_latency: 2,
         };
         surface.configure(&device, &config);
-        log::info!("Initializing text rendering");
         Text::init(&device, &queue, format, config.width, config.height);
-        log::info!("GPU initialization complete");
         Ok(Self {
             surface,
             device,
@@ -61,7 +49,6 @@ impl Gpu {
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
-        log::info!("Resize: {}x{}", width, height);
         self.config.width = width;
         self.config.height = height;
         self.surface.configure(&self.device, &self.config);
@@ -93,14 +80,12 @@ impl Gpu {
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
             if let Some(mut text) = text_lock() {
-                if let Err(err) = text.prepare(
+                let _ = text.prepare(
                     &self.device,
                     &self.queue,
                     self.config.width,
                     self.config.height,
-                ) {
-                    log::error!("Text prepare failed: {err}");
-                }
+                );
                 {
                     let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -119,9 +104,7 @@ impl Gpu {
                         })],
                         ..Default::default()
                     });
-                    if let Err(err) = text.render(&mut pass) {
-                        log::error!("Text render failed: {err}");
-                    }
+                    let _ = text.render(&mut pass);
                 }
                 text.trim();
             }

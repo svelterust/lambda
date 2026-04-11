@@ -1,6 +1,6 @@
 mod app;
 mod gpu;
-pub mod input;
+mod input;
 
 use gpu::DrawCmd;
 use std::ptr;

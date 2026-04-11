@@ -6,11 +6,11 @@ use winit::window::Window;
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct DrawCmd {
-    x: f32,
-    y: f32,
-    w: f32,
-    h: f32,
-    color: u32,
+    pub x: f32,
+    pub y: f32,
+    pub w: f32,
+    pub h: f32,
+    pub color: u32,
 }
 
 impl DrawCmd {

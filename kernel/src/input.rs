@@ -1,10 +1,15 @@
 use std::ptr::addr_of_mut;
 use std::sync::atomic::{AtomicU32, Ordering};
 use winit::keyboard::KeyCode;
+use winit::event::MouseButton;
 
 // Event types
 pub const KEY_DOWN: u8 = 1;
 pub const KEY_UP: u8 = 2;
+pub const MOUSE_MOVE: u8 = 3;
+pub const MOUSE_DOWN: u8 = 4;
+pub const MOUSE_UP: u8 = 5;
+pub const SCROLL: u8 = 6;
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -47,7 +52,6 @@ pub fn push_event(event: InputEvent) {
 }
 
 // C-ABI exports
-
 #[unsafe(no_mangle)]
 pub extern "C" fn lambda_input_buf_ptr() -> *const InputEvent {
     addr_of_mut!(INPUT_BUF) as *const InputEvent
@@ -87,7 +91,6 @@ pub fn modifiers_to_u8(mods: &winit::event::Modifiers) -> u8 {
     m
 }
 
-// KeyCode -> u16 mapping
 pub fn keycode_to_u16(key: KeyCode) -> u16 {
     match key {
         // Letters 1..26
@@ -194,5 +197,16 @@ pub fn keycode_to_u16(key: KeyCode) -> u16 {
         KeyCode::Pause => 124,
 
         _ => 0,
+    }
+}
+
+pub fn mouse_button_to_u16(button: MouseButton) -> u16 {
+    match button {
+        MouseButton::Left => 1,
+        MouseButton::Right => 2,
+        MouseButton::Middle => 3,
+        MouseButton::Back => 4,
+        MouseButton::Forward => 5,
+        MouseButton::Other(n) => 10 + n,
     }
 }

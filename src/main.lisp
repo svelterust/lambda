@@ -1,5 +1,9 @@
 (in-package :lambda)
 
+(with-input (type key mods x y)
+  (case type
+    (:mouse-down (format t "CLICK ~A X ~A Y ~A~%" key x y))))
+
 (with-scene
   (rect 30.0  30.0  200.0 120.0 #xE63946FF)
   (rect 260.0 30.0  200.0 120.0 #x2A9D8FFF)

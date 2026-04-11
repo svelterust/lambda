@@ -1,5 +1,6 @@
 (in-package :lambda)
 
+;;; FFI
 (cffi:defcstruct input-event
   (event-type :uint8)
   (modifiers  :uint8)
@@ -11,111 +12,46 @@
 (cffi:defcfun ("lambda_input_write_index"   %input-write-index)   :uint32)
 (cffi:defcfun ("lambda_input_set_read_index" %input-set-read-index) :void (n :uint32))
 
-;; Event types
-(defconstant +key-down+ 1)
-(defconstant +key-up+   2)
+;;; Lookup tables (numeric → keyword)
+(defvar *event-types*
+  #(:unknown :key-down :key-up :mouse-move :mouse-down :mouse-up :scroll))
 
-;; Modifier bits
-(defconstant +mod-shift+ 1)
-(defconstant +mod-ctrl+  2)
-(defconstant +mod-alt+   4)
-(defconstant +mod-super+ 8)
+(defvar *mouse-buttons*
+  #(nil :left :right :middle :back :forward))
 
-;;; Key codes
-(defconstant +key-a+  1)
-(defconstant +key-b+  2)
-(defconstant +key-c+  3)
-(defconstant +key-d+  4)
-(defconstant +key-e+  5)
-(defconstant +key-f+  6)
-(defconstant +key-g+  7)
-(defconstant +key-h+  8)
-(defconstant +key-i+  9)
-(defconstant +key-j+ 10)
-(defconstant +key-k+ 11)
-(defconstant +key-l+ 12)
-(defconstant +key-m+ 13)
-(defconstant +key-n+ 14)
-(defconstant +key-o+ 15)
-(defconstant +key-p+ 16)
-(defconstant +key-q+ 17)
-(defconstant +key-r+ 18)
-(defconstant +key-s+ 19)
-(defconstant +key-t+ 20)
-(defconstant +key-u+ 21)
-(defconstant +key-v+ 22)
-(defconstant +key-w+ 23)
-(defconstant +key-x+ 24)
-(defconstant +key-y+ 25)
-(defconstant +key-z+ 26)
+(defvar *key-codes* (make-array 125 :initial-element nil))
 
-(defconstant +digit-0+ 30)
-(defconstant +digit-1+ 31)
-(defconstant +digit-2+ 32)
-(defconstant +digit-3+ 33)
-(defconstant +digit-4+ 34)
-(defconstant +digit-5+ 35)
-(defconstant +digit-6+ 36)
-(defconstant +digit-7+ 37)
-(defconstant +digit-8+ 38)
-(defconstant +digit-9+ 39)
-
-(defconstant +space+     40)
-(defconstant +enter+     41)
-(defconstant +escape+    42)
-(defconstant +backspace+ 43)
-(defconstant +tab+       44)
-(defconstant +delete+    45)
-(defconstant +insert+    46)
-(defconstant +home+      47)
-(defconstant +end+       48)
-(defconstant +page-up+   49)
-(defconstant +page-down+ 50)
-
-(defconstant +comma+         55)
-(defconstant +period+        56)
-(defconstant +slash+         57)
-(defconstant +semicolon+     58)
-(defconstant +quote+         59)
-(defconstant +bracket-left+  60)
-(defconstant +bracket-right+ 61)
-(defconstant +backslash+     62)
-(defconstant +minus+         63)
-(defconstant +equal+         64)
-(defconstant +backquote+     65)
-
-(defconstant +arrow-up+    80)
-(defconstant +arrow-down+  81)
-(defconstant +arrow-left+  82)
-(defconstant +arrow-right+ 83)
-
-(defconstant +shift-left+    90)
-(defconstant +shift-right+   91)
-(defconstant +control-left+  92)
-(defconstant +control-right+ 93)
-(defconstant +alt-left+      94)
-(defconstant +alt-right+     95)
-(defconstant +super-left+    96)
-(defconstant +super-right+   97)
-
-(defconstant +f1+  100)
-(defconstant +f2+  101)
-(defconstant +f3+  102)
-(defconstant +f4+  103)
-(defconstant +f5+  104)
-(defconstant +f6+  105)
-(defconstant +f7+  106)
-(defconstant +f8+  107)
-(defconstant +f9+  108)
-(defconstant +f10+ 109)
-(defconstant +f11+ 110)
-(defconstant +f12+ 111)
-
-(defconstant +caps-lock+    120)
-(defconstant +num-lock+     121)
-(defconstant +scroll-lock+  122)
-(defconstant +print-screen+ 123)
-(defconstant +pause+        124)
+(loop for (code key) in
+      '(;; Letters
+        (1 :a) (2 :b) (3 :c) (4 :d) (5 :e) (6 :f) (7 :g)
+        (8 :h) (9 :i) (10 :j) (11 :k) (12 :l) (13 :m) (14 :n)
+        (15 :o) (16 :p) (17 :q) (18 :r) (19 :s) (20 :t) (21 :u)
+        (22 :v) (23 :w) (24 :x) (25 :y) (26 :z)
+        ;; Digits
+        (30 :0) (31 :1) (32 :2) (33 :3) (34 :4)
+        (35 :5) (36 :6) (37 :7) (38 :8) (39 :9)
+        ;; Common
+        (40 :space) (41 :enter) (42 :escape) (43 :backspace) (44 :tab)
+        (45 :delete) (46 :insert) (47 :home) (48 :end)
+        (49 :page-up) (50 :page-down)
+        ;; Punctuation
+        (55 :comma) (56 :period) (57 :slash) (58 :semicolon) (59 :quote)
+        (60 :bracket-left) (61 :bracket-right) (62 :backslash)
+        (63 :minus) (64 :equal) (65 :backquote)
+        ;; Arrows
+        (80 :up) (81 :down) (82 :left) (83 :right)
+        ;; Modifiers
+        (90 :shift-left) (91 :shift-right)
+        (92 :control-left) (93 :control-right)
+        (94 :alt-left) (95 :alt-right)
+        (96 :super-left) (97 :super-right)
+        ;; F-keys
+        (100 :f1) (101 :f2) (102 :f3) (103 :f4) (104 :f5) (105 :f6)
+        (106 :f7) (107 :f8) (108 :f9) (109 :f10) (110 :f11) (111 :f12)
+        ;; Misc
+        (120 :caps-lock) (121 :num-lock) (122 :scroll-lock)
+        (123 :print-screen) (124 :pause))
+      do (setf (aref *key-codes* code) key))
 
 ;;; Polling
 (defparameter *input-buf* (%input-buf-ptr))
@@ -123,26 +59,37 @@
 
 (defun poll-events ()
   "Read all pending input events from the ring buffer.
-Returns a list of (event-type code modifiers) lists."
+Returns a list of (type key mods x y) lists with keyword symbols."
   (let ((write (%input-write-index))
         (read *read-index*)
         (event-size (cffi:foreign-type-size '(:struct input-event)))
         (events nil))
     (loop while (/= read write) do
       (let ((ptr (cffi:inc-pointer *input-buf* (* (mod read 256) event-size))))
-        (cffi:with-foreign-slots ((event-type modifiers code) ptr (:struct input-event))
-          (push (list event-type code modifiers) events)))
+        (cffi:with-foreign-slots ((event-type modifiers code x y) ptr (:struct input-event))
+          (push (list (aref *event-types* event-type)
+                      (if (<= event-type 2)
+                          (aref *key-codes* code)
+                          (when (< code (length *mouse-buttons*))
+                            (aref *mouse-buttons* code)))
+                      modifiers x y)
+                events)))
       (setf read (ldb (byte 32 0) (1+ read))))
     (setf *read-index* read)
     (%input-set-read-index read)
     (nreverse events)))
 
-;; Callback
+;;; Input handler macro
 (cffi:defcfun ("lambda_set_input_callback" %set-input-callback) :void
   (cb :pointer))
 
-(cffi:defcallback input-tick :void ()
-  (dolist (ev (poll-events))
-	(format t "~S~%" ev)))
-
-(%set-input-callback (cffi:callback input-tick))
+(defmacro with-input ((type key mods x y) &body body)
+  "Define the input handler. BODY runs once per input event with TYPE, KEY as
+keywords, MODS as modifier bits, and X Y as floats. Replaces any previous handler."
+  (let ((ev (gensym "EV")))
+    `(progn
+       (cffi:defcallback input-tick :void ()
+         (dolist (,ev (poll-events))
+           (destructuring-bind (,type ,key ,mods ,x ,y) ,ev
+             ,@body)))
+       (%set-input-callback (cffi:callback input-tick)))))

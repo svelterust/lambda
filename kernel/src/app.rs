@@ -1,28 +1,19 @@
-use crate::input::{self, InputEvent, KEY_DOWN, KEY_UP};
+use crate::input::{self, InputEvent, KEY_DOWN, KEY_UP, MOUSE_DOWN, MOUSE_MOVE, MOUSE_UP, SCROLL};
 use crate::{gpu::Gpu, read_commands};
 use std::sync::Arc;
 use winit::{
     application::ApplicationHandler,
-    event::{ElementState, WindowEvent},
+    event::{ElementState, MouseScrollDelta, WindowEvent},
     event_loop::ActiveEventLoop,
     keyboard::PhysicalKey,
     window::{Window, WindowId},
 };
 
+#[derive(Default)]
 pub struct Lambda {
     window: Option<Arc<Window>>,
     gpu: Option<Gpu>,
     modifiers: u8,
-}
-
-impl Default for Lambda {
-    fn default() -> Self {
-        Self {
-            window: None,
-            gpu: None,
-            modifiers: 0,
-        }
-    }
 }
 
 impl ApplicationHandler for Lambda {
@@ -75,6 +66,44 @@ impl ApplicationHandler for Lambda {
                         crate::call_input_callback();
                     }
                 }
+            }
+            WindowEvent::CursorMoved { position, .. } => {
+                input::push_event(InputEvent {
+                    event_type: MOUSE_MOVE,
+                    modifiers: self.modifiers,
+                    code: 0,
+                    x: position.x as f32,
+                    y: position.y as f32,
+                });
+                crate::call_input_callback();
+            }
+            WindowEvent::MouseInput { state, button, .. } => {
+                let event_type = match state {
+                    ElementState::Pressed => MOUSE_DOWN,
+                    ElementState::Released => MOUSE_UP,
+                };
+                input::push_event(InputEvent {
+                    event_type,
+                    modifiers: self.modifiers,
+                    code: input::mouse_button_to_u16(button),
+                    x: 0.0,
+                    y: 0.0,
+                });
+                crate::call_input_callback();
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                let (dx, dy) = match delta {
+                    MouseScrollDelta::LineDelta(x, y) => (x, y),
+                    MouseScrollDelta::PixelDelta(pos) => (pos.x as f32, pos.y as f32),
+                };
+                input::push_event(InputEvent {
+                    event_type: SCROLL,
+                    modifiers: self.modifiers,
+                    code: 0,
+                    x: dx,
+                    y: dy,
+                });
+                crate::call_input_callback();
             }
             WindowEvent::RedrawRequested => {
                 if let Some(gpu) = self.gpu.as_mut() {

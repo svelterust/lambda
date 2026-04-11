@@ -10,9 +10,26 @@ pollster = "0.4"
 bytemuck = { version = "1", features = ["derive"] }
 winit = { version = "0.30", default-features = false, features = ["rwh_06", "wayland", "wayland-dlopen"] }
 wgpu = { version = "29", default-features = false, features = ["wgsl", "vulkan"] }
+glyphon = { git = "https://github.com/grovesNL/glyphon", branch = "main" }
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
 [patch.crates-io]
 winit = { git = "https://github.com/svelterust/winit", branch = "allow-recreation" }
+
+[profile.dev]
+opt-level = 1
+debug = "line-tables-only"
+strip = "debuginfo"
+panic = "abort"
+overflow-checks = false
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+strip = true
+opt-level = 3
+lto = "fat"
+panic = "abort"

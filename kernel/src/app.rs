@@ -1,5 +1,5 @@
+use crate::gpu::Gpu;
 use crate::input::{self, InputEvent, KEY_DOWN, KEY_UP, MOUSE_DOWN, MOUSE_MOVE, MOUSE_UP, SCROLL};
-use crate::{gpu::Gpu, read_commands};
 use std::sync::Arc;
 use winit::{
     application::ApplicationHandler,
@@ -34,14 +34,14 @@ impl ApplicationHandler for Lambda {
                             window.request_redraw();
                             self.window = Some(window);
                         }
-                        Err(e) => {
-                            log::error!("GPU init failed: {e:?}");
+                        Err(err) => {
+                            log::error!("GPU init failed: {err:?}");
                             event_loop.exit();
                         }
                     }
                 }
-                Err(e) => {
-                    log::error!("Window creation failed: {e:?}");
+                Err(err) => {
+                    log::error!("Window creation failed: {err:?}");
                     event_loop.exit();
                 }
             }
@@ -122,9 +122,8 @@ impl ApplicationHandler for Lambda {
                 crate::call_input_callback();
             }
             WindowEvent::RedrawRequested => {
-                crate::call_frame_callback();
                 if let Some(gpu) = self.gpu.as_mut() {
-                    gpu.render(read_commands());
+                    gpu.render();
                 }
                 if let Some(window) = self.window.as_ref() {
                     window.request_redraw();

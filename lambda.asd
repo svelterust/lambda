@@ -3,7 +3,6 @@
   :serial t
   :components ((:file "package")
                (:module "src"
-                :components ((:file "kernel")
-                             (:file "draw")
-                             (:file "input")
-                             (:file "main")))))
+               :components ((:file "kernel")
+                            (:file "input")
+                            (:file "text")))))

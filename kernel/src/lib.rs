@@ -2,11 +2,10 @@ mod app;
 mod gpu;
 mod input;
 mod logger;
+mod text;
 
-use gpu::DrawCmd;
 use std::ptr;
-use std::ptr::addr_of_mut;
-use std::sync::atomic::{AtomicPtr, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicPtr, Ordering};
 use winit::{
     event_loop::EventLoop,
     platform::{
@@ -14,21 +13,6 @@ use winit::{
         wayland::EventLoopBuilderExtWayland,
     },
 };
-
-// Shared draw command buffer (written by Lisp, read by renderer)
-const CAPACITY: usize = 1024;
-static DRAW_COUNT: AtomicU32 = AtomicU32::new(0);
-static mut DRAW_BUF: [DrawCmd; CAPACITY] = [DrawCmd::ZERO_CMD; CAPACITY];
-
-#[unsafe(no_mangle)]
-pub extern "C" fn lambda_buf_ptr() -> *mut DrawCmd {
-    addr_of_mut!(DRAW_BUF) as *mut DrawCmd
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn lambda_buf_set_count(n: u32) {
-    DRAW_COUNT.store(n.min(CAPACITY as u32), Ordering::Release);
-}
 
 #[unsafe(no_mangle)]
 pub extern "C" fn lambda_run() {
@@ -38,21 +22,19 @@ pub extern "C" fn lambda_run() {
         Ok(mut event_loop) => {
             log::info!("Event loop created");
             let mut app = app::Lambda::default();
-            panic!("Something terrible has happenned...");
             loop {
                 if let PumpStatus::Exit(_) = event_loop.pump_app_events(None, &mut app) {
                     break;
                 }
             }
         }
-        Err(e) => {
-            log::error!("Failed to build event loop: {e:?}");
+        Err(err) => {
+            log::error!("Failed to build event loop: {err:?}");
         }
     }
     log::info!("Lambda exiting");
 }
 
-// Input callback (called from Rust on input events, runs Lisp code)
 pub static INPUT_CALLBACK: AtomicPtr<()> = AtomicPtr::new(ptr::null_mut());
 
 #[unsafe(no_mangle)]
@@ -69,24 +51,37 @@ pub fn call_input_callback() {
     }
 }
 
-// Frame callback (called once per vsync frame before render)
-pub static FRAME_CALLBACK: AtomicPtr<()> = AtomicPtr::new(ptr::null_mut());
+#[unsafe(no_mangle)]
+pub extern "C" fn lambda_text_create(font_size: f32, line_height: f32) -> u32 {
+    text::Text::ffi_create(font_size, line_height)
+}
 
 #[unsafe(no_mangle)]
-pub extern "C" fn lambda_set_frame_callback(cb: Option<extern "C" fn()>) {
-    let ptr = cb.map_or(ptr::null_mut(), |f| f as *mut ());
-    FRAME_CALLBACK.store(ptr, Ordering::Release);
+pub extern "C" fn lambda_text_destroy(id: u32) {
+    text::Text::ffi_destroy(id);
 }
 
-pub fn call_frame_callback() {
-    let cb = FRAME_CALLBACK.load(Ordering::Acquire);
-    if !cb.is_null() {
-        let f: extern "C" fn() = unsafe { std::mem::transmute(cb) };
-        f();
-    }
+#[unsafe(no_mangle)]
+pub extern "C" fn lambda_text_set(id: u32, ptr: *const u8, len: u32) {
+    text::Text::ffi_set(id, ptr, len);
 }
 
-pub fn read_commands() -> &'static [DrawCmd] {
-    let count = DRAW_COUNT.load(Ordering::Acquire) as usize;
-    unsafe { std::slice::from_raw_parts(addr_of_mut!(DRAW_BUF) as *const DrawCmd, count) }
+#[unsafe(no_mangle)]
+pub extern "C" fn lambda_text_position(id: u32, x: f32, y: f32) {
+    text::Text::ffi_set_position(id, x, y);
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn lambda_text_bounds(id: u32, left: i32, top: i32, right: i32, bottom: i32) {
+    text::Text::ffi_set_bounds(id, left, top, right, bottom);
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn lambda_text_color(id: u32, rgba: u32) {
+    text::Text::ffi_set_color(id, rgba);
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn lambda_text_metrics(id: u32, font_size: f32, line_height: f32) {
+    text::Text::ffi_set_metrics(id, font_size, line_height);
 }

@@ -1,5 +1,5 @@
-use std::ptr::addr_of_mut;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::ptr::{self, addr_of_mut};
+use std::sync::atomic::{AtomicPtr, AtomicU32, Ordering};
 use winit::event::MouseButton;
 use winit::keyboard::KeyCode;
 
@@ -192,6 +192,23 @@ pub fn keycode_to_u16(key: KeyCode) -> u16 {
         KeyCode::Pause => 124,
 
         _ => 0,
+    }
+}
+
+// Input callback
+static INPUT_CALLBACK: AtomicPtr<()> = AtomicPtr::new(ptr::null_mut());
+
+#[unsafe(no_mangle)]
+pub extern "C" fn lambda_set_input_callback(cb: Option<extern "C" fn()>) {
+    let ptr = cb.map_or(ptr::null_mut(), |f| f as *mut ());
+    INPUT_CALLBACK.store(ptr, Ordering::Release);
+}
+
+pub fn call_input_callback() {
+    let cb = INPUT_CALLBACK.load(Ordering::Acquire);
+    if !cb.is_null() {
+        let f: extern "C" fn() = unsafe { std::mem::transmute(cb) };
+        f();
     }
 }
 

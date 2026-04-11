@@ -65,7 +65,7 @@ impl ApplicationHandler for Lambda {
                             x: 0.0,
                             y: 0.0,
                         });
-                        crate::call_input_callback();
+                        input::call_input_callback();
                     }
                 }
             }
@@ -79,7 +79,7 @@ impl ApplicationHandler for Lambda {
                     x: self.cursor_x,
                     y: self.cursor_y,
                 });
-                crate::call_input_callback();
+                input::call_input_callback();
             }
             WindowEvent::MouseInput { state, button, .. } => {
                 let event_type = match state {
@@ -93,7 +93,7 @@ impl ApplicationHandler for Lambda {
                     x: self.cursor_x,
                     y: self.cursor_y,
                 });
-                crate::call_input_callback();
+                input::call_input_callback();
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 let (dx, dy) = match delta {
@@ -107,7 +107,7 @@ impl ApplicationHandler for Lambda {
                     x: dx,
                     y: dy,
                 });
-                crate::call_input_callback();
+                input::call_input_callback();
             }
             WindowEvent::RedrawRequested => {
                 if let Some(gpu) = self.gpu.as_mut() {

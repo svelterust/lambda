@@ -13,10 +13,8 @@ impl Log for FileLogger {
     }
 
     fn log(&self, record: &Record) {
-        if self.enabled(record.metadata()) {
-            if let Ok(mut f) = self.0.lock() {
-                let _ = writeln!(f, "[{}] {}", record.level(), record.args());
-            }
+        if self.enabled(record.metadata()) && let Ok(mut f) = self.0.lock() {
+            let _ = writeln!(f, "[{}] {}", record.level(), record.args());
         }
     }
 

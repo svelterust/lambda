@@ -1,4 +1,4 @@
-use crate::text::{text_lock, Text};
+use crate::text::{Text, text_lock};
 use anyhow::{Context, Result};
 use std::sync::Arc;
 use winit::window::Window;

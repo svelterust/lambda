@@ -1,3 +1,3 @@
 (defpackage :lambda
   (:use :cl)
-  (:export :run))
+  (:export :run :rect :clear :flush))

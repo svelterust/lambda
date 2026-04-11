@@ -1,4 +1,4 @@
-use crate::{gpu::Gpu, DrawCmd};
+use crate::gpu::Gpu;
 use std::sync::Arc;
 use winit::{
     application::ApplicationHandler,
@@ -12,8 +12,8 @@ pub struct Lambda {
     gpu: Option<Gpu>,
 }
 
-impl Default for Lambda {
-    fn default() -> Self {
+impl Lambda {
+    pub fn new() -> Self {
         Self {
             window: None,
             gpu: None,
@@ -59,31 +59,8 @@ impl ApplicationHandler for Lambda {
                 }
             }
             WindowEvent::RedrawRequested => {
-                if let Some(gpu) = self.gpu.as_ref() {
-                    let test_commands = vec![
-                        DrawCmd {
-                            x: 50.0,
-                            y: 50.0,
-                            w: 300.0,
-                            h: 200.0,
-                            color: 0x2244AAFF,
-                        },
-                        DrawCmd {
-                            x: 200.0,
-                            y: 150.0,
-                            w: 400.0,
-                            h: 250.0,
-                            color: 0xCC4422FF,
-                        },
-                        DrawCmd {
-                            x: 100.0,
-                            y: 300.0,
-                            w: 250.0,
-                            h: 150.0,
-                            color: 0x22AA44CC,
-                        },
-                    ];
-                    gpu.render(&test_commands);
+                if let Some(gpu) = self.gpu.as_mut() {
+                    gpu.render(crate::read_commands());
                 }
                 if let Some(window) = self.window.as_ref() {
                     window.request_redraw();

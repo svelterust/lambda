@@ -1,8 +1,17 @@
-use crate::DrawCmd;
 use anyhow::{Context, Result};
 use std::sync::Arc;
 use wgpu::util::DeviceExt;
 use winit::window::Window;
+
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct DrawCmd {
+    pub x: f32,
+    pub y: f32,
+    pub w: f32,
+    pub h: f32,
+    pub color: u32,
+}
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -181,11 +190,19 @@ impl Gpu {
             .write_buffer(&self.viewport_buf, 0, bytemuck::bytes_of(&viewport));
     }
 
-    pub fn render(&self, commands: &[DrawCmd]) {
-        // Acquire framebuffer
+    pub fn render(&mut self, commands: &[DrawCmd]) {
+        // Acquire framebuffer, reconfigure on Outdated
         let frame = match self.surface.get_current_texture() {
-            wgpu::CurrentSurfaceTexture::Success(tex)
-            | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
+            wgpu::CurrentSurfaceTexture::Success(tex) => tex,
+            wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
+            wgpu::CurrentSurfaceTexture::Outdated => {
+                self.surface.configure(&self.device, &self.config);
+                match self.surface.get_current_texture() {
+                    wgpu::CurrentSurfaceTexture::Success(tex)
+                    | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
+                    _ => return,
+                }
+            }
             _ => return,
         };
 
@@ -225,10 +242,12 @@ impl Gpu {
             });
 
             // Render draw commands
-            pass.set_pipeline(&self.pipeline);
-            pass.set_bind_group(0, &self.viewport_bind_group, &[]);
-            pass.set_vertex_buffer(0, instance_buf.slice(..));
-            pass.draw(0..4, 0..commands.len() as u32);
+            if !commands.is_empty() {
+                pass.set_pipeline(&self.pipeline);
+                pass.set_bind_group(0, &self.viewport_bind_group, &[]);
+                pass.set_vertex_buffer(0, instance_buf.slice(..));
+                pass.draw(0..4, 0..commands.len() as u32);
+            }
         }
 
         // Submit + present

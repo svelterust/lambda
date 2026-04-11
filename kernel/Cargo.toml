@@ -12,3 +12,6 @@ wgpu = { version = "29", default-features = false, features = ["wgsl", "vulkan"]
 
 [lib]
 crate-type = ["cdylib", "rlib"]
+
+[patch.crates-io]
+winit = { git = "https://github.com/svelterust/winit", branch = "allow-recreation" }

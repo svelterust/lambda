@@ -613,6 +613,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bytemuck",
+ "log",
  "pollster",
  "wgpu",
  "winit",

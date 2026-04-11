@@ -43,16 +43,22 @@ pub struct Gpu {
 impl Gpu {
     pub fn new(window: &Arc<Window>) -> Result<Self> {
         // Instance
+        log::info!("Creating wgpu instance (Vulkan)");
         let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
         desc.backends = wgpu::Backends::VULKAN;
         let instance = wgpu::Instance::new(desc);
 
         // Device
+        log::info!("Creating surface");
         let surface = instance.create_surface(window.clone())?;
+
+        log::info!("Requesting adapter");
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
             compatible_surface: Some(&surface),
             ..Default::default()
         }))?;
+
+        log::info!("Requesting device");
         let (device, queue) =
             pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
                 label: Some("lambda"),
@@ -63,6 +69,12 @@ impl Gpu {
         let size = window.inner_size();
         let caps = surface.get_capabilities(&adapter);
         let &format = caps.formats.first().context("No surface format")?;
+        log::info!(
+            "Configuring surface: {}x{} {:?}",
+            size.width,
+            size.height,
+            format
+        );
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format,
@@ -76,6 +88,7 @@ impl Gpu {
         surface.configure(&device, &config);
 
         // Shader
+        log::info!("Compiling rect shader");
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("rect"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shaders/rect.wgsl").into()),
@@ -116,6 +129,7 @@ impl Gpu {
         });
 
         // Pipeline
+        log::info!("Creating render pipeline");
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
             bind_group_layouts: &[Some(&bind_group_layout)],
@@ -171,6 +185,7 @@ impl Gpu {
             cache: None,
         });
 
+        log::info!("GPU initialization complete");
         Ok(Self {
             surface,
             device,
@@ -183,6 +198,7 @@ impl Gpu {
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
+        log::info!("Resize: {}x{}", width, height);
         self.config.width = width;
         self.config.height = height;
         self.surface.configure(&self.device, &self.config);

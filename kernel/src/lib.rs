@@ -1,6 +1,7 @@
 mod app;
 mod gpu;
 mod input;
+mod logger;
 
 use gpu::DrawCmd;
 use std::ptr;
@@ -31,14 +32,24 @@ pub extern "C" fn lambda_buf_set_count(n: u32) {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn lambda_run() {
-    if let Ok(mut event_loop) = EventLoop::builder().with_any_thread(true).build() {
-        let mut app = app::Lambda::default();
-        loop {
-            if let PumpStatus::Exit(_) = event_loop.pump_app_events(None, &mut app) {
-                break;
+    logger::init();
+    log::info!("Lambda started");
+    match EventLoop::builder().with_any_thread(true).build() {
+        Ok(mut event_loop) => {
+            log::info!("Event loop created");
+            let mut app = app::Lambda::default();
+            panic!("Something terrible has happenned...");
+            loop {
+                if let PumpStatus::Exit(_) = event_loop.pump_app_events(None, &mut app) {
+                    break;
+                }
             }
         }
+        Err(e) => {
+            log::error!("Failed to build event loop: {e:?}");
+        }
     }
+    log::info!("Lambda exiting");
 }
 
 // Input callback (called from Rust on input events, runs Lisp code)

@@ -35,8 +35,8 @@
 (cffi:defcfun ("lambda_set_frame_callback" %set-frame-callback) :void
   (cb :pointer))
 
-(defmacro with-draw (&body body)
-  "Define the draw callback. BODY runs once per vsync frame before render.
+(defmacro with-update (&body body)
+  "Define the update callback. BODY runs once per vsync frame before render.
 Clears the buffer before BODY and flushes after. Replaces any previous callback."
   `(progn
      (cffi:defcallback frame-tick :void ()

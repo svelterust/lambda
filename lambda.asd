@@ -3,4 +3,5 @@
   :serial t
   :components ((:file "package")
                (:module "src"
-                :components ((:file "kernel")))))
+                :components ((:file "kernel")
+                             (:file "main")))))

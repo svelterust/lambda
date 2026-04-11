@@ -46,6 +46,10 @@
   (%buf-set-count *idx*)
   *idx*)
 
-(defun run ()
-  "Start the kernel event loop on a background thread."
+(defmacro with-scene (&body body)
+  "Clear the buffer, evaluate body, then flush."
+  `(progn (clear) ,@body (flush)))
+
+;; Start Lambda app
+(unless (find "lambda" (bt:all-threads) :key #'bt:thread-name :test #'string=)
   (bt:make-thread #'%run :name "lambda"))

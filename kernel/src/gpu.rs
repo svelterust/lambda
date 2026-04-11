@@ -6,11 +6,21 @@ use winit::window::Window;
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct DrawCmd {
-    pub x: f32,
-    pub y: f32,
-    pub w: f32,
-    pub h: f32,
-    pub color: u32,
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    color: u32,
+}
+
+impl DrawCmd {
+    pub const ZERO_CMD: Self = Self {
+        x: 0.0,
+        y: 0.0,
+        w: 0.0,
+        h: 0.0,
+        color: 0,
+    };
 }
 
 #[repr(C)]
@@ -123,19 +133,16 @@ impl Gpu {
                     step_mode: wgpu::VertexStepMode::Instance,
                     attributes: &[
                         wgpu::VertexAttribute {
-                            // pos: vec2<f32>
                             format: wgpu::VertexFormat::Float32x2,
                             offset: 0,
                             shader_location: 0,
                         },
                         wgpu::VertexAttribute {
-                            // size: vec2<f32>
                             format: wgpu::VertexFormat::Float32x2,
                             offset: 8,
                             shader_location: 1,
                         },
                         wgpu::VertexAttribute {
-                            // color: u32
                             format: wgpu::VertexFormat::Uint32,
                             offset: 16,
                             shader_location: 2,
@@ -176,12 +183,9 @@ impl Gpu {
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
-        // Resize on confige
         self.config.width = width;
         self.config.height = height;
         self.surface.configure(&self.device, &self.config);
-
-        // Update viewport
         let viewport = Viewport {
             width: self.config.width as f32,
             height: self.config.height as f32,
@@ -190,68 +194,70 @@ impl Gpu {
             .write_buffer(&self.viewport_buf, 0, bytemuck::bytes_of(&viewport));
     }
 
-    pub fn render(&mut self, commands: &[DrawCmd]) {
-        // Acquire framebuffer, reconfigure on Outdated
-        let frame = match self.surface.get_current_texture() {
-            wgpu::CurrentSurfaceTexture::Success(tex) => tex,
-            wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
+    fn acquire_frame(&mut self) -> Option<wgpu::SurfaceTexture> {
+        match self.surface.get_current_texture() {
+            wgpu::CurrentSurfaceTexture::Success(tex)
+            | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => Some(tex),
             wgpu::CurrentSurfaceTexture::Outdated => {
                 self.surface.configure(&self.device, &self.config);
                 match self.surface.get_current_texture() {
                     wgpu::CurrentSurfaceTexture::Success(tex)
-                    | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
-                    _ => return,
+                    | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => Some(tex),
+                    _ => None,
                 }
             }
-            _ => return,
-        };
-
-        let view = frame.texture.create_view(&Default::default());
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-
-        // Instance buffer
-        let instance_buf = self
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("instances"),
-                contents: bytemuck::cast_slice(commands),
-                usage: wgpu::BufferUsages::VERTEX,
-            });
-
-        // Render pass
-        {
-            // Clear screen
-            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 1.0,
-                            g: 1.0,
-                            b: 1.0,
-                            a: 1.0,
-                        }),
-                        store: wgpu::StoreOp::Store,
-                    },
-                    depth_slice: None,
-                })],
-                ..Default::default()
-            });
-
-            // Render draw commands
-            if !commands.is_empty() {
-                pass.set_pipeline(&self.pipeline);
-                pass.set_bind_group(0, &self.viewport_bind_group, &[]);
-                pass.set_vertex_buffer(0, instance_buf.slice(..));
-                pass.draw(0..4, 0..commands.len() as u32);
-            }
+            _ => None,
         }
+    }
 
-        // Submit + present
-        self.queue.submit(Some(encoder.finish()));
-        frame.present();
+    pub fn render(&mut self, commands: &[DrawCmd]) {
+        if let Some(frame) = self.acquire_frame() {
+            let view = frame.texture.create_view(&Default::default());
+            let mut encoder = self
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+
+            // Instance buffer
+            let instance_buf = self
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("instances"),
+                    contents: bytemuck::cast_slice(commands),
+                    usage: wgpu::BufferUsages::VERTEX,
+                });
+
+            // Render pass
+            {
+                let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view: &view,
+                        resolve_target: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(wgpu::Color {
+                                r: 1.0,
+                                g: 1.0,
+                                b: 1.0,
+                                a: 1.0,
+                            }),
+                            store: wgpu::StoreOp::Store,
+                        },
+                        depth_slice: None,
+                    })],
+                    ..Default::default()
+                });
+
+                // Draw commands
+                if !commands.is_empty() {
+                    pass.set_pipeline(&self.pipeline);
+                    pass.set_bind_group(0, &self.viewport_bind_group, &[]);
+                    pass.set_vertex_buffer(0, instance_buf.slice(..));
+                    pass.draw(0..4, 0..commands.len() as u32);
+                }
+            }
+
+            // Submit + present
+            self.queue.submit(Some(encoder.finish()));
+            frame.present();
+        }
     }
 }

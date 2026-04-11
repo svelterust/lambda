@@ -12,8 +12,9 @@
   (cffi:close-foreign-library 'libkernel))
 (cffi:use-foreign-library libkernel)
 
-;; FFI
+;; Start Lambda app
 (cffi:defcfun ("lambda_run" %run) :void)
 
 (unless (find "lambda" (bt:all-threads) :key #'bt:thread-name :test #'string=)
   (bt:make-thread #'%run :name "lambda"))
+

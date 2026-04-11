@@ -1,6 +1,5 @@
 (in-package :lambda)
 
-;; FFI
 (cffi:defcfun ("lambda_buf_ptr"       %buf-ptr)       :pointer)
 (cffi:defcfun ("lambda_buf_set_count" %buf-set-count) :void (n :uint32))
 
@@ -11,6 +10,7 @@
   (h     :float)
   (color :uint32))
 
+;; Draw commands
 (defparameter *buf* (%buf-ptr))
 (defvar *idx* 0)
 

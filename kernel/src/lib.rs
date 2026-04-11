@@ -1,9 +1,11 @@
 mod app;
 mod gpu;
+pub mod input;
 
 use gpu::DrawCmd;
+use std::ptr;
 use std::ptr::addr_of_mut;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicPtr, AtomicU32, Ordering};
 use winit::{
     event_loop::EventLoop,
     platform::{
@@ -36,6 +38,23 @@ pub extern "C" fn lambda_run() {
                 break;
             }
         }
+    }
+}
+
+// Input callback (called from Rust on input events, runs Lisp code)
+pub static INPUT_CALLBACK: AtomicPtr<()> = AtomicPtr::new(ptr::null_mut());
+
+#[unsafe(no_mangle)]
+pub extern "C" fn lambda_set_input_callback(cb: Option<extern "C" fn()>) {
+    let ptr = cb.map_or(ptr::null_mut(), |f| f as *mut ());
+    INPUT_CALLBACK.store(ptr, Ordering::Release);
+}
+
+pub fn call_input_callback() {
+    let cb = INPUT_CALLBACK.load(Ordering::Acquire);
+    if !cb.is_null() {
+        let f: extern "C" fn() = unsafe { std::mem::transmute(cb) };
+        f();
     }
 }
 

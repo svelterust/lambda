@@ -31,6 +31,14 @@
   "Publish the current draw commands to the renderer."
   (%buf-set-count *idx*))
 
-(defmacro with-scene (&body body)
-  "Clear the buffer, evaluate body, then flush."
-  `(progn (clear) ,@body (flush)))
+;;; Frame callback
+(cffi:defcfun ("lambda_set_frame_callback" %set-frame-callback) :void
+  (cb :pointer))
+
+(defmacro with-draw (&body body)
+  "Define the draw callback. BODY runs once per vsync frame before render.
+Clears the buffer before BODY and flushes after. Replaces any previous callback."
+  `(progn
+     (cffi:defcallback frame-tick :void ()
+       (progn (clear) ,@body (flush)))
+     (%set-frame-callback (cffi:callback frame-tick))))

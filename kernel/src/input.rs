@@ -1,7 +1,7 @@
 use std::ptr::addr_of_mut;
 use std::sync::atomic::{AtomicU32, Ordering};
-use winit::keyboard::KeyCode;
 use winit::event::MouseButton;
+use winit::keyboard::KeyCode;
 
 // Event types
 pub const KEY_DOWN: u8 = 1;
@@ -40,11 +40,6 @@ static INPUT_READ: AtomicU32 = AtomicU32::new(0);
 
 pub fn push_event(event: InputEvent) {
     let w = INPUT_WRITE.load(Ordering::Relaxed);
-    let r = INPUT_READ.load(Ordering::Acquire);
-    // Drop event if buffer is full
-    if w.wrapping_sub(r) >= CAPACITY as u32 {
-        return;
-    }
     unsafe {
         INPUT_BUF[(w & MASK) as usize] = event;
     }

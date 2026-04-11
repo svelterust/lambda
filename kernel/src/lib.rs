@@ -58,6 +58,23 @@ pub fn call_input_callback() {
     }
 }
 
+// Frame callback (called once per vsync frame before render)
+pub static FRAME_CALLBACK: AtomicPtr<()> = AtomicPtr::new(ptr::null_mut());
+
+#[unsafe(no_mangle)]
+pub extern "C" fn lambda_set_frame_callback(cb: Option<extern "C" fn()>) {
+    let ptr = cb.map_or(ptr::null_mut(), |f| f as *mut ());
+    FRAME_CALLBACK.store(ptr, Ordering::Release);
+}
+
+pub fn call_frame_callback() {
+    let cb = FRAME_CALLBACK.load(Ordering::Acquire);
+    if !cb.is_null() {
+        let f: extern "C" fn() = unsafe { std::mem::transmute(cb) };
+        f();
+    }
+}
+
 pub fn read_commands() -> &'static [DrawCmd] {
     let count = DRAW_COUNT.load(Ordering::Acquire) as usize;
     unsafe { std::slice::from_raw_parts(addr_of_mut!(DRAW_BUF) as *const DrawCmd, count) }

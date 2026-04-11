@@ -110,6 +110,7 @@ impl ApplicationHandler for Lambda {
                 crate::call_input_callback();
             }
             WindowEvent::RedrawRequested => {
+                crate::call_frame_callback();
                 if let Some(gpu) = self.gpu.as_mut() {
                     gpu.render(read_commands());
                 }

@@ -1,32 +1,14 @@
 (in-package :lambda)
 
-;; Input field
-(defparameter *bg* (make-rect))
-(rect-position *bg* 20 20)
-(rect-size *bg* 500 75)
-(rect-color *bg* #xFBFBFCFF)
-(rect-radius *bg* 8)
-(rect-border *bg* 1.5 #xCFD5E2FF)
+(defparameter *input-style*
+  '(:color #xFBFBFCFF :height 75 :radius 8
+    :border-width 1.5 :border-color #xCFD5E2FF :padding 25))
 
-;; Label
-(defparameter *lambda* (make-text 24 33.6))
-(text-position *lambda* 40 40)
-(text-color *lambda* #x707A8CFF)
-(text-set *lambda* "First name")
+(defun input (label)
+  `(rect ,*input-style*
+		 (text ,label (:size 24 :color #x707A8CFF))))
 
-;; Image
-(defparameter *slint* (make-image "/home/odd/downloads/slint.png"))
-(image-position *slint* 20 120)
-
-(defparameter *cat* (make-image "/home/odd/downloads/cat.jpg"))
-(image-position *cat* 200 370)
-
-;; SVG
-(defparameter *circle* (make-image "/home/odd/downloads/circle.svg"))
-(image-position *circle* 20 120)
-
-(defparameter *star* (make-image "/home/odd/downloads/star.svg"))
-(image-position *star* 160 120)
-
-(defparameter *lam* (make-image "/home/odd/downloads/lambda.svg"))
-(image-position *lam* 300 120)
+(defui *page* (:gap 16 :padding 16)
+  (input "First name")
+  (rect (:color #xE0E0E0FF :height 2))
+  (text "Layout engine working!" (:size 24 :color #x000000FF)))

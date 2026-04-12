@@ -1,3 +1,4 @@
+use resvg::usvg::fontdb;
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use wgpu::util::DeviceExt;
@@ -74,6 +75,7 @@ pub struct Images {
     screen_bind_group: wgpu::BindGroup,
     per_image_bgl: wgpu::BindGroupLayout,
     sampler: wgpu::Sampler,
+    fontdb: Arc<fontdb::Database>,
 }
 
 impl Images {
@@ -205,6 +207,10 @@ impl Images {
             ..Default::default()
         });
 
+        let mut fontdb = fontdb::Database::new();
+        fontdb.load_system_fonts();
+        let fontdb = Arc::new(fontdb);
+
         let arc = Arc::new(Mutex::new(Images {
             slots: BTreeMap::new(),
             next_id: 1,
@@ -215,6 +221,7 @@ impl Images {
             screen_bind_group,
             per_image_bgl,
             sampler,
+            fontdb,
         }));
         let _ = IMAGES.set(Arc::clone(&arc));
         arc
@@ -331,13 +338,35 @@ pub extern "C" fn lambda_image_create(ptr: *const u8, len: u32) -> u32 {
     let Ok(path) = std::str::from_utf8(bytes) else {
         return 0;
     };
-    let Ok(img) = image::open(path) else {
-        return 0;
-    };
-    let rgba = img.to_rgba8();
-    let (w, h) = rgba.dimensions();
 
     let mut images = images_lock();
+    let (w, h, pixels) = if path.ends_with(".svg") {
+        let Ok(data) = std::fs::read(path) else {
+            return 0;
+        };
+        let mut opt = resvg::usvg::Options::default();
+        opt.fontdb = Arc::clone(&images.fontdb);
+        let Ok(tree) = resvg::usvg::Tree::from_data(&data, &opt) else {
+            return 0;
+        };
+        let size = tree.size();
+        let w = size.width() as u32;
+        let h = size.height() as u32;
+        let Some(mut pixmap) = resvg::tiny_skia::Pixmap::new(w, h) else {
+            return 0;
+        };
+        resvg::render(
+            &tree,
+            resvg::tiny_skia::Transform::default(),
+            &mut pixmap.as_mut(),
+        );
+        (w, h, pixmap.take())
+    } else {
+        let Ok(img) = image::open(path) else { return 0 };
+        let rgba = img.to_rgba8();
+        let (w, h) = rgba.dimensions();
+        (w, h, rgba.into_raw())
+    };
     let id = images.next_id;
     images.next_id += 1;
     images.slots.insert(
@@ -349,7 +378,7 @@ pub extern "C" fn lambda_image_create(ptr: *const u8, len: u32) -> u32 {
             height: h as f32,
             natural_width: w,
             natural_height: h,
-            pending_pixels: Some(rgba.into_raw()),
+            pending_pixels: Some(pixels),
             gpu: None,
         },
     );

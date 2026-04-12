@@ -4,6 +4,16 @@
 
 (in-package :lambda)
 
+;;; Custom CFFI type for number -> float
+(cffi:define-foreign-type number-as-float ()
+  ()
+  (:actual-type :float)
+  (:simple-parser :number))
+
+(defmethod cffi:translate-to-foreign (value (type number-as-float))
+  (float value))
+
+;;; Library
 (let ((lib-dir (merge-pathnames
                 #p"lib/target/debug/"
                 (asdf:system-source-directory "lambda"))))
@@ -14,6 +24,6 @@
 (cffi:use-foreign-library liblambda)
 
 ;; Run
-(cffi:defcfun ("lambda_run" %run) :void)
-(bt:make-thread #'%run :name "lambda")
+(cffi:defcfun ("lambda_run" run) :void)
+(bt:make-thread #'run :name "lambda")
 

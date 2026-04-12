@@ -80,8 +80,7 @@ Returns a list of (type key mods x y) lists with keyword symbols."
     (nreverse events)))
 
 ;;; Input
-(cffi:defcfun ("lambda_set_input_callback" %set-input-callback) :void
-  (cb :pointer))
+(cffi:defcfun ("lambda_set_input_callback" %set-input-callback) :void (cb :pointer))
 
 (defmacro handle-input ((type key mods x y) &body body)
   "Define the input handler. BODY runs once per input event with TYPE, KEY as

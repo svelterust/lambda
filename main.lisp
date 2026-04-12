@@ -2,31 +2,31 @@
 
 ;; Input field
 (defparameter *bg* (make-rect))
-(rect-position *bg* 20.0 20.0)
-(rect-size *bg* 500.0 75.0)
+(rect-position *bg* 20 20)
+(rect-size *bg* 500 75)
 (rect-color *bg* #xFBFBFCFF)
-(rect-radius *bg* 8.0)
+(rect-radius *bg* 8)
 (rect-border *bg* 1.5 #xCFD5E2FF)
 
 ;; Label
-(defparameter *lambda* (make-text :size 24.0)) 
-(text-position *lambda* 40.0 40.0)
-(text-color *lambda* #x707A8CFF) 
+(defparameter *lambda* (make-text 24 33.6))
+(text-position *lambda* 40 40)
+(text-color *lambda* #x707A8CFF)
 (text-set *lambda* "First name")
 
 ;; Image
 (defparameter *slint* (make-image "/home/odd/downloads/slint.png"))
-(image-position *slint* 20.0 120.0)
+(image-position *slint* 20 120)
 
 (defparameter *cat* (make-image "/home/odd/downloads/cat.jpg"))
-(image-position *cat* 200.0 370.0)
+(image-position *cat* 200 370)
 
 ;; SVG
 (defparameter *circle* (make-image "/home/odd/downloads/circle.svg"))
-(image-position *circle* 20.0 120.0)
+(image-position *circle* 20 120)
 
 (defparameter *star* (make-image "/home/odd/downloads/star.svg"))
-(image-position *star* 160.0 120.0)
+(image-position *star* 160 120)
 
 (defparameter *lam* (make-image "/home/odd/downloads/lambda.svg"))
-(image-position *lam* 300.0 120.0)
+(image-position *lam* 300 120)

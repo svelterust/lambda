@@ -1,5 +1,7 @@
 use crate::gpu::Gpu;
-use crate::input::{self, InputEvent, KEY_DOWN, KEY_UP, MOUSE_DOWN, MOUSE_MOVE, MOUSE_UP, SCROLL};
+use crate::systems::input::{
+    self, InputEvent, KEY_DOWN, KEY_UP, MOUSE_DOWN, MOUSE_MOVE, MOUSE_UP, SCROLL,
+};
 use std::sync::Arc;
 use winit::{
     application::ApplicationHandler,
@@ -13,9 +15,8 @@ use winit::{
 pub struct Lambda {
     window: Option<Arc<Window>>,
     gpu: Option<Gpu>,
+    cursor: (f32, f32),
     modifiers: u8,
-    cursor_x: f32,
-    cursor_y: f32,
 }
 
 impl ApplicationHandler for Lambda {
@@ -70,14 +71,13 @@ impl ApplicationHandler for Lambda {
                 }
             }
             WindowEvent::CursorMoved { position, .. } => {
-                self.cursor_x = position.x as f32;
-                self.cursor_y = position.y as f32;
+                self.cursor = (position.x as f32, position.y as f32);
                 input::push_event(InputEvent {
                     event_type: MOUSE_MOVE,
                     modifiers: self.modifiers,
                     code: 0,
-                    x: self.cursor_x,
-                    y: self.cursor_y,
+                    x: self.cursor.0,
+                    y: self.cursor.1,
                 });
                 input::call_input_callback();
             }
@@ -90,8 +90,8 @@ impl ApplicationHandler for Lambda {
                     event_type,
                     modifiers: self.modifiers,
                     code: input::mouse_button_to_u16(button),
-                    x: self.cursor_x,
-                    y: self.cursor_y,
+                    x: self.cursor.0,
+                    y: self.cursor.1,
                 });
                 input::call_input_callback();
             }

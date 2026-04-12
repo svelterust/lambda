@@ -1,0 +1,14 @@
+[package]
+name = "lambda"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+pollster = "0.4"
+glyphon = "0.10"
+bytemuck = { version = "1", features = ["derive"] }
+wgpu = { version = "28", default-features = false, features = ["wgsl", "vulkan"] }
+winit = { version = "0.30", default-features = false, features = ["rwh_06", "wayland", "wayland-dlopen"] }
+
+[lib]
+crate-type = ["cdylib"]

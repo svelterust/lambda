@@ -12,7 +12,7 @@ pub const MOUSE_UP: u8 = 5;
 pub const SCROLL: u8 = 6;
 
 #[repr(C)]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Copy, Clone)]
 pub struct InputEvent {
     pub event_type: u8,
     pub modifiers: u8,
@@ -46,7 +46,6 @@ pub fn push_event(event: InputEvent) {
     INPUT_WRITE.store(w.wrapping_add(1), Ordering::Release);
 }
 
-// C-ABI exports
 #[unsafe(no_mangle)]
 pub extern "C" fn lambda_input_buf_ptr() -> *const InputEvent {
     addr_of_mut!(INPUT_BUF) as *const InputEvent

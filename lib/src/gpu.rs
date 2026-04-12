@@ -1,6 +1,5 @@
-use crate::rect::Rects;
-use crate::text::Text;
-use anyhow::{Context, Result};
+use crate::Result;
+use crate::systems::{rect::Rects, text::Text};
 use std::sync::{Arc, Mutex};
 use winit::window::Window;
 
@@ -15,9 +14,10 @@ pub struct Gpu {
 
 impl Gpu {
     pub fn new(window: &Arc<Window>) -> Result<Self> {
-        let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
-        desc.backends = wgpu::Backends::VULKAN;
-        let instance = wgpu::Instance::new(desc);
+        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
+            backends: wgpu::Backends::VULKAN,
+            ..Default::default()
+        });
         let surface = instance.create_surface(window.clone())?;
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
             compatible_surface: Some(&surface),
@@ -25,12 +25,12 @@ impl Gpu {
         }))?;
         let (device, queue) =
             pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
-                label: Some("lambda"),
+                label: Some("Lambda"),
                 ..Default::default()
             }))?;
         let size = window.inner_size();
         let caps = surface.get_capabilities(&adapter);
-        let &format = caps.formats.first().context("No surface format")?;
+        let &format = caps.formats.first().ok_or("No surface format")?;
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format,
@@ -99,17 +99,12 @@ impl Gpu {
 
     fn acquire_frame(&mut self) -> Option<wgpu::SurfaceTexture> {
         match self.surface.get_current_texture() {
-            wgpu::CurrentSurfaceTexture::Success(tex)
-            | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => Some(tex),
-            wgpu::CurrentSurfaceTexture::Outdated => {
+            Ok(tex) => Some(tex),
+            Err(wgpu::SurfaceError::Outdated) => {
                 self.surface.configure(&self.device, &self.config);
-                match self.surface.get_current_texture() {
-                    wgpu::CurrentSurfaceTexture::Success(tex)
-                    | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => Some(tex),
-                    _ => None,
-                }
+                self.surface.get_current_texture().ok()
             }
-            _ => None,
+            Err(_) => None,
         }
     }
 }

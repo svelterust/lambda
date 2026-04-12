@@ -1,10 +1,11 @@
-use anyhow::{Context, Result};
 use glyphon::{
     Attrs, Buffer, Cache, Color, Family, FontSystem, Metrics, Resolution, Shaping, SwashCache,
     TextArea, TextAtlas, TextBounds, TextRenderer, Viewport,
 };
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
+
+use crate::Result;
 
 static TEXT: OnceLock<Arc<Mutex<Text>>> = OnceLock::new();
 
@@ -103,13 +104,13 @@ impl Text {
                 areas,
                 &mut self.swash_cache,
             )
-            .context("Failed to prepare")
+            .map_err(|e| e.into())
     }
 
     pub fn render(&self, pass: &mut wgpu::RenderPass<'_>) -> Result<()> {
         self.renderer
             .render(&self.atlas, &self.viewport, pass)
-            .context("Failed to render")
+            .map_err(|e| e.into())
     }
 
     pub fn trim(&mut self) {

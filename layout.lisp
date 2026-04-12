@@ -58,7 +58,7 @@
          id))
       (:text
        (let* ((size (or (getf styles :size) 16))
-              (lh (or (getf styles :line-height) size))
+              (lh (or (getf styles :line-height) (1+ size)))
               (id (make-text size lh)))
          (when (node-content node) (text-set id (node-content node)))
          (let ((c (getf styles :color))) (when c (text-color id c)))

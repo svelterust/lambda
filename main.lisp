@@ -8,7 +8,11 @@
   `(rect ,*input-style*
 		 (text ,label (:size 24 :color #x707A8CFF))))
 
-(defui *page* (:gap 16 :padding 16)
+(defun divider ()
+  `(rect (:color #xE0E0E0FF :height 2)))
+
+(defui *page* (:gap 24 :padding 16)
   (input "First name")
-  (rect (:color #xE0E0E0FF :height 2))
-  (text "Layout engine working!" (:size 24 :color #x000000FF)))
+  (input "Last name")
+  (divider)
+  (text "Layout engine working!" (:size 24 :color #x707A8CFF)))

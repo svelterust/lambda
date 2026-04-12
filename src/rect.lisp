@@ -18,6 +18,9 @@
 (cffi:defcfun ("lambda_rect_radius"  %rect-radius)  :void
   (id :uint32) (radius :float))
 
+(cffi:defcfun ("lambda_rect_border"  %rect-border)  :void
+  (id :uint32) (width :float) (rgba :uint32))
+
 ;;; Rect
 (defun make-rect ()
   "Create a new rectangle. Returns an integer ID."
@@ -50,3 +53,9 @@
   (declare (type (unsigned-byte 32) id)
            (type single-float radius))
   (%rect-radius id radius))
+
+(defun rect-border (id width rgba)
+  "Set the border width and color as #xRRGGBBAA."
+  (declare (type (unsigned-byte 32) id rgba)
+           (type single-float width))
+  (%rect-border id width rgba))

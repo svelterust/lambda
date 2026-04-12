@@ -20,16 +20,20 @@ struct Rect {
     height: f32,
     color: [f32; 4],
     radius: f32,
+    border_width: f32,
+    border_color: [f32; 4],
 }
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct RectInstance {
-    pos: [f32; 2],
-    size: [f32; 2],
-    color: [f32; 4],
-    radius: f32,
-}
+    pos: [f32; 2],          //  0: 8 bytes
+    size: [f32; 2],         //  8: 8 bytes
+    color: [f32; 4],        // 16: 16 bytes
+    radius: f32,            // 32: 4 bytes
+    border_width: f32,      // 36: 4 bytes
+    border_color: [f32; 4], // 40: 16 bytes
+} // = 56 bytes
 
 const SHADER: &str = "
 struct Uniform {
@@ -43,6 +47,8 @@ struct VsIn {
     @location(2) inst_size: vec2<f32>,
     @location(3) inst_color: vec4<f32>,
     @location(4) inst_radius: f32,
+    @location(5) inst_border_width: f32,
+    @location(6) inst_border_color: vec4<f32>,
 };
 
 struct VsOut {
@@ -51,6 +57,8 @@ struct VsOut {
     @location(1) local_pos: vec2<f32>,
     @location(2) size: vec2<f32>,
     @location(3) radius: f32,
+    @location(4) border_width: f32,
+    @location(5) border_color: vec4<f32>,
 };
 
 @vertex
@@ -66,6 +74,8 @@ fn vs_main(v: VsIn) -> VsOut {
     out.local_pos = v.quad_pos * v.inst_size;
     out.size = v.inst_size;
     out.radius = v.inst_radius;
+    out.border_width = v.inst_border_width;
+    out.border_color = v.inst_border_color;
     return out;
 }
 
@@ -80,8 +90,19 @@ fn fs_main(v: VsOut) -> @location(0) vec4<f32> {
     let p = v.local_pos - half;
     let r = min(v.radius, min(half.x, half.y));
     let dist = sdf_round_rect(p, half, r);
-    let alpha = 1.0 - smoothstep(-0.5, 0.5, dist);
-    return vec4<f32>(v.color.rgb, v.color.a * alpha);
+
+    // Outer edge anti-aliasing
+    let outer_alpha = 1.0 - smoothstep(-0.5, 0.5, dist);
+    if outer_alpha < 0.001 { discard; }
+
+    // Border vs fill
+    if v.border_width > 0.0 {
+        let border_mix = smoothstep(-v.border_width - 0.5, -v.border_width + 0.5, dist);
+        let color = mix(v.color, v.border_color, border_mix);
+        return vec4<f32>(color.rgb, color.a * outer_alpha);
+    }
+
+    return vec4<f32>(v.color.rgb, v.color.a * outer_alpha);
 }
 ";
 
@@ -152,9 +173,9 @@ impl Rects {
                     shader_location: 0,
                 }],
             },
-            // Slot 1: per-instance data (36 bytes)
+            // Slot 1: per-instance data (56 bytes)
             wgpu::VertexBufferLayout {
-                array_stride: 36,
+                array_stride: 56,
                 step_mode: wgpu::VertexStepMode::Instance,
                 attributes: &[
                     wgpu::VertexAttribute {
@@ -176,6 +197,16 @@ impl Rects {
                         format: wgpu::VertexFormat::Float32,
                         offset: 32,
                         shader_location: 4, // inst_radius
+                    },
+                    wgpu::VertexAttribute {
+                        format: wgpu::VertexFormat::Float32,
+                        offset: 36,
+                        shader_location: 5, // inst_border_width
+                    },
+                    wgpu::VertexAttribute {
+                        format: wgpu::VertexFormat::Float32x4,
+                        offset: 40,
+                        shader_location: 6, // inst_border_color
                     },
                 ],
             },
@@ -275,6 +306,8 @@ impl Rects {
                 size: [r.width, r.height],
                 color: r.color,
                 radius: r.radius,
+                border_width: r.border_width,
+                border_color: r.border_color,
             })
             .collect::<Vec<_>>();
 
@@ -324,6 +357,8 @@ pub extern "C" fn lambda_rect_create() -> u32 {
             height: 0.0,
             color: [0.0, 0.0, 0.0, 1.0],
             radius: 0.0,
+            border_width: 0.0,
+            border_color: [0.0, 0.0, 0.0, 0.0],
         },
     );
     id
@@ -366,5 +401,18 @@ pub extern "C" fn lambda_rect_color(id: u32, rgba: u32) {
 pub extern "C" fn lambda_rect_radius(id: u32, radius: f32) {
     if let Some(rect) = rects_lock().slots.get_mut(&id) {
         rect.radius = radius;
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn lambda_rect_border(id: u32, width: f32, rgba: u32) {
+    if let Some(rect) = rects_lock().slots.get_mut(&id) {
+        rect.border_width = width;
+        rect.border_color = [
+            ((rgba >> 24) & 0xFF) as f32 / 255.0,
+            ((rgba >> 16) & 0xFF) as f32 / 255.0,
+            ((rgba >> 8) & 0xFF) as f32 / 255.0,
+            (rgba & 0xFF) as f32 / 255.0,
+        ];
     }
 }

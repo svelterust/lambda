@@ -1,15 +1,16 @@
 (in-package :lambda)
 
-;; Dark rounded background rect
+;; Input field
 (defparameter *bg* (make-rect))
 (rect-position *bg* 20.0 20.0)
-(rect-size *bg* 400.0 100.0)
-(rect-color *bg* #x1E1E1EFF)
-(rect-radius *bg* 16.0)
-(rect-destroy *bg*)
+(rect-size *bg* 500.0 75.0)
+(rect-color *bg* #xFBFBFCFF)
+(rect-radius *bg* 8.0)
+(rect-border *bg* 1.5 #xCFD5E2FF)
 
-;; Title text on top
-(defparameter *lambda* (make-text :size 100.0))
-(text-set *lambda* "Lambda")
-(text-position *lambda* 50.0 50.0)
-(text-destroy *lambda*)
+;; Label
+(defparameter *lambda* (make-text :size 24.0)) 
+(text-position *lambda* 40.0 40.0)
+(text-color *lambda* #x707A8CFF) 
+(text-set *lambda* "First name")
+

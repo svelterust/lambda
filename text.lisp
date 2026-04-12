@@ -8,6 +8,8 @@
 (cffi:defcfun ("lambda_text_bounds"   text-bounds)   :void    (id :uint32) (left :int32) (top :int32) (right :int32) (bottom :int32))
 (cffi:defcfun ("lambda_text_color"    text-color)    :void    (id :uint32) (rgba :uint32))
 (cffi:defcfun ("lambda_text_metrics"  text-metrics)  :void    (id :uint32) (font-size :number) (line-height :number))
+(cffi:defcfun ("lambda_text_width"   text-width)    :float   (id :uint32))
+(cffi:defcfun ("lambda_text_height"  text-height)   :float   (id :uint32))
 
 (defun text-set (id string)
   (let ((octets (sb-ext:string-to-octets string :external-format :utf-8)))

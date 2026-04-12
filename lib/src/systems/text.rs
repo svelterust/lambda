@@ -212,3 +212,25 @@ pub extern "C" fn lambda_text_metrics(id: u32, font_size: f32, line_height: f32)
         slot.buffer.shape_until_scroll(unsafe { &mut *fs }, false);
     }
 }
+
+#[unsafe(no_mangle)]
+pub extern "C" fn lambda_text_width(id: u32) -> f32 {
+    let text = text_lock();
+    text.slots.get(&id).map_or(0.0, |slot| {
+        slot.buffer
+            .layout_runs()
+            .map(|run| run.line_w)
+            .fold(0.0f32, f32::max)
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn lambda_text_height(id: u32) -> f32 {
+    let text = text_lock();
+    text.slots.get(&id).map_or(0.0, |slot| {
+        slot.buffer
+            .layout_runs()
+            .map(|run| run.line_top + run.line_height)
+            .fold(0.0f32, f32::max)
+    })
+}

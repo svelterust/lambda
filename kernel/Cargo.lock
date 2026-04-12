@@ -723,6 +723,7 @@ dependencies = [
  "anyhow",
  "bytemuck",
  "glyphon",
+ "indexmap",
  "log",
  "pollster",
  "wgpu",

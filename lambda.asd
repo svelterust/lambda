@@ -5,4 +5,5 @@
                (:module "src"
                :components ((:file "kernel")
                             (:file "input")
-                            (:file "text")))))
+                            (:file "text")
+                            (:file "rect")))))

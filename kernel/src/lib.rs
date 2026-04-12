@@ -3,6 +3,7 @@ mod app;
 mod gpu;
 mod input;
 mod logger;
+mod rect;
 mod text;
 
 use winit::{

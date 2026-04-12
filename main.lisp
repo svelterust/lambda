@@ -14,3 +14,7 @@
 (text-color *lambda* #x707A8CFF) 
 (text-set *lambda* "First name")
 
+;; Image
+(defparameter *slint* (make-image "/home/odd/downloads/2026-04-10-142010.png"))
+(image-position *slint* 20.0 120.0)
+

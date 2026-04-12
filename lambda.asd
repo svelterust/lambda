@@ -4,4 +4,5 @@
   :components ((:file "lambda")
                (:file "input")
                (:file "text")
-               (:file "rect")))
+               (:file "rect")
+               (:file "image")))

@@ -1,5 +1,5 @@
+use crate::systems::{image::Images, rect::Rects, text::Text};
 use crate::Result;
-use crate::systems::{rect::Rects, text::Text};
 use std::sync::{Arc, Mutex};
 use winit::window::Window;
 
@@ -9,6 +9,7 @@ pub struct Gpu {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     rects: Arc<Mutex<Rects>>,
+    images: Arc<Mutex<Images>>,
     text: Arc<Mutex<Text>>,
 }
 
@@ -44,6 +45,7 @@ impl Gpu {
         surface.configure(&device, &config);
 
         let rects = Rects::init(&device, format);
+        let images = Images::init(&device, format);
         let text = Text::init(&device, &queue, format, config.width, config.height);
 
         Ok(Self {
@@ -52,6 +54,7 @@ impl Gpu {
             queue,
             config,
             rects,
+            images,
             text,
         })
     }
@@ -77,16 +80,19 @@ impl Gpu {
             {
                 // Get subsystems
                 let mut rects = self.rects.lock().unwrap_or_else(|e| e.into_inner());
+                let mut images = self.images.lock().unwrap_or_else(|e| e.into_inner());
                 let mut text = self.text.lock().unwrap_or_else(|e| e.into_inner());
 
                 // Prepare on GPU
                 rects.prepare(&self.device, &self.queue, width, height);
+                images.prepare(&self.device, &self.queue, width, height);
                 let _ = text.prepare(&self.device, &self.queue, width, height);
 
                 {
                     // Render to GPU
                     let mut pass = begin_pass(&mut encoder, &view);
                     rects.render(&mut pass);
+                    images.render(&mut pass);
                     let _ = text.render(&mut pass);
                 }
                 text.trim();

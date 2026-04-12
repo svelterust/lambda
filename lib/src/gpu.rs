@@ -1,7 +1,22 @@
 use crate::systems::{image::Images, rect::Rects, text::Text};
 use crate::Result;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use winit::window::Window;
+
+// Window size
+static WINDOW_WIDTH: AtomicU32 = AtomicU32::new(0);
+static WINDOW_HEIGHT: AtomicU32 = AtomicU32::new(0);
+
+#[unsafe(no_mangle)]
+pub extern "C" fn lambda_window_width() -> u32 {
+    WINDOW_WIDTH.load(Ordering::Relaxed)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn lambda_window_height() -> u32 {
+    WINDOW_HEIGHT.load(Ordering::Relaxed)
+}
 
 pub struct Gpu {
     surface: wgpu::Surface<'static>,
@@ -48,6 +63,8 @@ impl Gpu {
             desired_maximum_frame_latency: 2,
         };
         surface.configure(&device, &config);
+        WINDOW_WIDTH.store(config.width, Ordering::Relaxed);
+        WINDOW_HEIGHT.store(config.height, Ordering::Relaxed);
 
         // Initialize subsystems
         let rects = Rects::init(&device, format);
@@ -68,6 +85,8 @@ impl Gpu {
     pub fn resize(&mut self, width: u32, height: u32) {
         self.config.width = width;
         self.config.height = height;
+        WINDOW_WIDTH.store(width, Ordering::Relaxed);
+        WINDOW_HEIGHT.store(height, Ordering::Relaxed);
         self.surface.configure(&self.device, &self.config);
         self.text
             .lock()

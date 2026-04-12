@@ -5,4 +5,5 @@
                (:file "input")
                (:file "text")
                (:file "rect")
-               (:file "image")))
+               (:file "image")
+               (:file "layout")))

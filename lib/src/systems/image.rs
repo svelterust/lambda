@@ -207,6 +207,7 @@ impl Images {
             ..Default::default()
         });
 
+        // Load system fonts once for SVG <text> rendering
         let mut fontdb = fontdb::Database::new();
         fontdb.load_system_fonts();
         let fontdb = Arc::new(fontdb);
@@ -228,6 +229,7 @@ impl Images {
     }
 
     pub fn prepare(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, width: u32, height: u32) {
+        // Screen size uniform for pixel -> NDC conversion
         queue.write_buffer(
             &self.screen_uniform_buf,
             0,
@@ -235,7 +237,7 @@ impl Images {
         );
 
         for slot in self.slots.values_mut() {
-            // Upload pending textures
+            // Deferred upload: create GPU texture from pending pixels
             if let Some(pixels) = slot.pending_pixels.take() {
                 let texture = device.create_texture(&wgpu::TextureDescriptor {
                     label: Some("image_tex"),
@@ -317,11 +319,13 @@ impl Images {
     pub fn render<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {
         let has_any = self.slots.values().any(|s| s.gpu.is_some());
         if has_any {
+            // Shared state: pipeline, screen uniform, quad geometry
             pass.set_pipeline(&self.pipeline);
             pass.set_bind_group(0, &self.screen_bind_group, &[]);
             pass.set_vertex_buffer(0, self.vertex_buf.slice(..));
             pass.set_index_buffer(self.index_buf.slice(..), wgpu::IndexFormat::Uint16);
 
+            // One draw call per image (each has its own texture)
             for slot in self.slots.values() {
                 if let Some(gpu) = &slot.gpu {
                     pass.set_bind_group(1, &gpu.bind_group, &[]);
@@ -335,26 +339,19 @@ impl Images {
 #[unsafe(no_mangle)]
 pub extern "C" fn lambda_image_create(ptr: *const u8, len: u32) -> u32 {
     let bytes = unsafe { std::slice::from_raw_parts(ptr, len as usize) };
-    let Ok(path) = std::str::from_utf8(bytes) else {
-        return 0;
-    };
-
+    let Ok(path) = std::str::from_utf8(bytes) else { return 0; };
     let mut images = images_lock();
+    
+    // Decode: SVG via resvg, raster via image crate
     let (w, h, pixels) = if path.ends_with(".svg") {
-        let Ok(data) = std::fs::read(path) else {
-            return 0;
-        };
+        let Ok(data) = std::fs::read(path) else { return 0; };
         let mut opt = resvg::usvg::Options::default();
         opt.fontdb = Arc::clone(&images.fontdb);
-        let Ok(tree) = resvg::usvg::Tree::from_data(&data, &opt) else {
-            return 0;
-        };
+        let Ok(tree) = resvg::usvg::Tree::from_data(&data, &opt) else { return 0; };
         let size = tree.size();
         let w = size.width() as u32;
         let h = size.height() as u32;
-        let Some(mut pixmap) = resvg::tiny_skia::Pixmap::new(w, h) else {
-            return 0;
-        };
+        let Some(mut pixmap) = resvg::tiny_skia::Pixmap::new(w, h) else { return 0; };
         resvg::render(
             &tree,
             resvg::tiny_skia::Transform::default(),
@@ -367,6 +364,8 @@ pub extern "C" fn lambda_image_create(ptr: *const u8, len: u32) -> u32 {
         let (w, h) = rgba.dimensions();
         (w, h, rgba.into_raw())
     };
+
+    // Store pixels; GPU upload happens in prepare()
     let id = images.next_id;
     images.next_id += 1;
     images.slots.insert(

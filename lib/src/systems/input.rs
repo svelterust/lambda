@@ -31,7 +31,7 @@ impl InputEvent {
     };
 }
 
-// Ring buffer
+// Ring buffer: 256 entries, atomic indices, no locks
 const CAPACITY: usize = 256;
 const MASK: u32 = (CAPACITY as u32) - 1;
 static mut INPUT_BUF: [InputEvent; CAPACITY] = [InputEvent::ZERO; CAPACITY];
@@ -61,7 +61,7 @@ pub extern "C" fn lambda_input_set_read_index(n: u32) {
     INPUT_READ.store(n, Ordering::Release);
 }
 
-// Modifier bits
+// Modifier bitmask: SHIFT=1, CTRL=2, ALT=4, SUPER=8
 pub const MOD_SHIFT: u8 = 1;
 pub const MOD_CTRL: u8 = 2;
 pub const MOD_ALT: u8 = 4;
@@ -194,7 +194,7 @@ pub fn keycode_to_u16(key: KeyCode) -> u16 {
     }
 }
 
-// Input callback
+// Lisp-registered callback, called on every input event
 static INPUT_CALLBACK: AtomicPtr<()> = AtomicPtr::new(ptr::null_mut());
 
 #[unsafe(no_mangle)]

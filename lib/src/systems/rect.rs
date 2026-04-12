@@ -77,6 +77,7 @@ fn rects_lock() -> MutexGuard<'static, Rects> {
         .unwrap_or_else(|e| e.into_inner())
 }
 
+/// Convert packed #xRRGGBBAA to [0.0..1.0] floats.
 fn rgba_to_f32(rgba: u32) -> [f32; 4] {
     [
         ((rgba >> 24) & 0xFF) as f32 / 255.0,
@@ -249,12 +250,14 @@ impl Rects {
     }
 
     pub fn prepare(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, width: u32, height: u32) {
+        // Screen size uniform for pixel -> NDC conversion
         queue.write_buffer(
             &self.uniform_buf,
             0,
             bytemuck::cast_slice(&[width as f32, height as f32]),
         );
 
+        // Collect slot data into GPU instance buffer
         let instances = self
             .slots
             .values()
@@ -271,6 +274,7 @@ impl Rects {
         let count = instances.len();
         self.instance_count = count as u32;
         if count > 0 {
+            // Grow buffer with power-of-2 strategy
             if count > self.capacity {
                 let mut new_cap = self.capacity;
                 while new_cap < count {

@@ -15,11 +15,14 @@ pub struct Gpu {
 
 impl Gpu {
     pub fn new(window: &Arc<Window>) -> Result<Self> {
+        // Vulkan instance + surface
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             backends: wgpu::Backends::VULKAN,
             ..Default::default()
         });
         let surface = instance.create_surface(window.clone())?;
+
+        // Adapter + device
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
             compatible_surface: Some(&surface),
             ..Default::default()
@@ -29,6 +32,8 @@ impl Gpu {
                 label: Some("Lambda"),
                 ..Default::default()
             }))?;
+
+        // Surface configuration
         let size = window.inner_size();
         let caps = surface.get_capabilities(&adapter);
         let &format = caps.formats.first().ok_or("No surface format")?;
@@ -44,6 +49,7 @@ impl Gpu {
         };
         surface.configure(&device, &config);
 
+        // Initialize subsystems
         let rects = Rects::init(&device, format);
         let images = Images::init(&device, format);
         let text = Text::init(&device, &queue, format, config.width, config.height);
@@ -78,18 +84,18 @@ impl Gpu {
             let (width, height) = (self.config.width, self.config.height);
 
             {
-                // Get subsystems
+                // Lock subsystems
                 let mut rects = self.rects.lock().unwrap_or_else(|e| e.into_inner());
                 let mut images = self.images.lock().unwrap_or_else(|e| e.into_inner());
                 let mut text = self.text.lock().unwrap_or_else(|e| e.into_inner());
 
-                // Prepare on GPU
+                // Upload data to GPU
                 rects.prepare(&self.device, &self.queue, width, height);
                 images.prepare(&self.device, &self.queue, width, height);
                 let _ = text.prepare(&self.device, &self.queue, width, height);
 
+                // Draw: rects -> images -> text (back to front)
                 {
-                    // Render to GPU
                     let mut pass = begin_pass(&mut encoder, &view);
                     rects.render(&mut pass);
                     images.render(&mut pass);
@@ -98,11 +104,13 @@ impl Gpu {
                 text.trim();
             }
 
+            // Submit + present
             self.queue.submit(Some(encoder.finish()));
             frame.present();
         };
     }
 
+    /// Get the next frame, reconfiguring the surface if outdated.
     fn acquire_frame(&mut self) -> Option<wgpu::SurfaceTexture> {
         match self.surface.get_current_texture() {
             Ok(tex) => Some(tex),

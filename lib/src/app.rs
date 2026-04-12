@@ -21,6 +21,7 @@ pub struct Lambda {
 
 impl ApplicationHandler for Lambda {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        // First resume: create window + GPU
         if self.window.is_none() {
             let attrs = Window::default_attributes().with_title("Lambda");
             match event_loop.create_window(attrs) {
@@ -109,6 +110,7 @@ impl ApplicationHandler for Lambda {
                 });
                 input::call_input_callback();
             }
+            // Continuous redraw loop
             WindowEvent::RedrawRequested => {
                 if let Some(gpu) = self.gpu.as_mut() {
                     gpu.render();

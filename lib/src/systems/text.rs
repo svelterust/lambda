@@ -85,6 +85,7 @@ impl Text {
         height: u32,
     ) -> Result<()> {
         self.viewport.update(queue, Resolution { width, height });
+        // Map each slot to a glyphon TextArea for rendering
         let areas = self.slots.values().map(|slot| TextArea {
             buffer: &slot.buffer,
             left: slot.x,

@@ -19,6 +19,7 @@ struct Rect {
     width: f32,
     height: f32,
     color: [f32; 4],
+    radius: f32,
 }
 
 #[repr(C)]
@@ -27,6 +28,7 @@ struct RectInstance {
     pos: [f32; 2],
     size: [f32; 2],
     color: [f32; 4],
+    radius: f32,
 }
 
 const SHADER: &str = "
@@ -40,11 +42,15 @@ struct VsIn {
     @location(1) inst_pos: vec2<f32>,
     @location(2) inst_size: vec2<f32>,
     @location(3) inst_color: vec4<f32>,
+    @location(4) inst_radius: f32,
 };
 
 struct VsOut {
     @builtin(position) pos: vec4<f32>,
     @location(0) color: vec4<f32>,
+    @location(1) local_pos: vec2<f32>,
+    @location(2) size: vec2<f32>,
+    @location(3) radius: f32,
 };
 
 @vertex
@@ -57,12 +63,25 @@ fn vs_main(v: VsIn) -> VsOut {
     );
     out.pos = vec4<f32>(ndc, 0.0, 1.0);
     out.color = v.inst_color;
+    out.local_pos = v.quad_pos * v.inst_size;
+    out.size = v.inst_size;
+    out.radius = v.inst_radius;
     return out;
+}
+
+fn sdf_round_rect(p: vec2<f32>, half: vec2<f32>, r: f32) -> f32 {
+    let q = abs(p) - half + r;
+    return length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - r;
 }
 
 @fragment
 fn fs_main(v: VsOut) -> @location(0) vec4<f32> {
-    return v.color;
+    let half = v.size * 0.5;
+    let p = v.local_pos - half;
+    let r = min(v.radius, min(half.x, half.y));
+    let dist = sdf_round_rect(p, half, r);
+    let alpha = 1.0 - smoothstep(-0.5, 0.5, dist);
+    return vec4<f32>(v.color.rgb, v.color.a * alpha);
 }
 ";
 
@@ -86,7 +105,6 @@ impl Rects {
             source: wgpu::ShaderSource::Wgsl(SHADER.into()),
         });
 
-        // Uniform buffer
         let uniform_buf = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("rect_uniform"),
             size: 8,
@@ -123,11 +141,10 @@ impl Rects {
             immediate_size: 0,
         });
 
-        // Vertex buffer layout
         let vertex_layouts = [
             // Slot 0: per-vertex quad position
             wgpu::VertexBufferLayout {
-                array_stride: 8, // vec2<f32>
+                array_stride: 8,
                 step_mode: wgpu::VertexStepMode::Vertex,
                 attributes: &[wgpu::VertexAttribute {
                     format: wgpu::VertexFormat::Float32x2,
@@ -135,28 +152,30 @@ impl Rects {
                     shader_location: 0,
                 }],
             },
-            // Slot 1: per-instance data
+            // Slot 1: per-instance data (36 bytes)
             wgpu::VertexBufferLayout {
-                array_stride: 32, // 2+2+4 floats = 32 bytes
+                array_stride: 36,
                 step_mode: wgpu::VertexStepMode::Instance,
                 attributes: &[
-                    // inst_pos
                     wgpu::VertexAttribute {
                         format: wgpu::VertexFormat::Float32x2,
                         offset: 0,
-                        shader_location: 1,
+                        shader_location: 1, // inst_pos
                     },
-                    // inst_size
                     wgpu::VertexAttribute {
                         format: wgpu::VertexFormat::Float32x2,
                         offset: 8,
-                        shader_location: 2,
+                        shader_location: 2, // inst_size
                     },
-                    // inst_color
                     wgpu::VertexAttribute {
                         format: wgpu::VertexFormat::Float32x4,
                         offset: 16,
-                        shader_location: 3,
+                        shader_location: 3, // inst_color
+                    },
+                    wgpu::VertexAttribute {
+                        format: wgpu::VertexFormat::Float32,
+                        offset: 32,
+                        shader_location: 4, // inst_radius
                     },
                 ],
             },
@@ -242,14 +261,12 @@ impl Rects {
     }
 
     pub fn prepare(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, width: u32, height: u32) {
-        // Upload screen resolution
         queue.write_buffer(
             &self.uniform_buf,
             0,
             bytemuck::cast_slice(&[width as f32, height as f32]),
         );
 
-        // Build instance data from slots in insertion order
         let instances = self
             .slots
             .values()
@@ -257,13 +274,13 @@ impl Rects {
                 pos: [r.x, r.y],
                 size: [r.width, r.height],
                 color: r.color,
+                radius: r.radius,
             })
             .collect::<Vec<_>>();
 
         let count = instances.len();
         self.instance_count = count as u32;
         if self.instance_count > 0 {
-            // Grow instance buffer if needed
             if count > self.capacity {
                 let mut new_cap = self.capacity;
                 while new_cap < count {
@@ -303,9 +320,10 @@ pub extern "C" fn lambda_rect_create() -> u32 {
         Rect {
             x: 0.0,
             y: 0.0,
-            width: 100.0,
-            height: 100.0,
-            color: [1.0, 1.0, 1.0, 1.0],
+            width: 0.0,
+            height: 0.0,
+            color: [0.0, 0.0, 0.0, 1.0],
+            radius: 0.0,
         },
     );
     id
@@ -341,5 +359,12 @@ pub extern "C" fn lambda_rect_color(id: u32, rgba: u32) {
             ((rgba >> 8) & 0xFF) as f32 / 255.0,
             (rgba & 0xFF) as f32 / 255.0,
         ];
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn lambda_rect_radius(id: u32, radius: f32) {
+    if let Some(rect) = rects_lock().slots.get_mut(&id) {
+        rect.radius = radius;
     }
 }

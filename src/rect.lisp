@@ -13,7 +13,10 @@
   (id :uint32) (w :float) (h :float))
 
 (cffi:defcfun ("lambda_rect_color"    %rect-color)    :void
-			  (id :uint32) (rgba :uint32))
+  (id :uint32) (rgba :uint32))
+
+(cffi:defcfun ("lambda_rect_radius"  %rect-radius)  :void
+  (id :uint32) (radius :float))
 
 ;;; Rect
 (defun make-rect ()
@@ -41,3 +44,9 @@
   "Set the fill color as #xRRGGBBAA."
   (declare (type (unsigned-byte 32) id rgba))
   (%rect-color id rgba))
+
+(defun rect-radius (id radius)
+  "Set the corner radius of a rectangle."
+  (declare (type (unsigned-byte 32) id)
+           (type single-float radius))
+  (%rect-radius id radius))

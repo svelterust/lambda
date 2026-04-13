@@ -18,54 +18,67 @@
   root          ; root node (implicit vstack)
   names)        ; hash table: keyword -> node
 
-(defparameter *element-types* '(:vstack :hstack :rect :text :image))
+(defun flatten-children (forms)
+  "Flatten one level of nesting and remove nils from children."
+  (mapcan (lambda (f)
+            (cond ((node-p f) (list f))
+                  ((listp f) (remove-if-not #'node-p f))))
+          forms))
 
-(defun resolve-styles (form)
-  "Return a style plist from FORM, either inline or a symbol bound to one."
-  (cond
-    ((and (listp form) (keywordp (car form))) form)
-    ((and (symbolp form) (boundp form))
-     (let ((val (symbol-value form)))
-       (when (and (listp val) (keywordp (car val))) val)))
-    (t nil)))
+(defun expand-styles (styles)
+  "Expand styles form: inline plist becomes (list ...), otherwise passed through."
+  (if (and (listp styles) (keywordp (car styles)))
+      `(list ,@styles)
+      styles))
 
-(defun parse-node (form)
-  "Parse (type content? styles? children...) into a node, or call as component."
-  (let ((type (intern (symbol-name (car form)) :keyword)))
-    (if (member type *element-types*)
-        (let* ((rest (copy-list (cdr form)))
-               (content (when (stringp (first rest)) (pop rest)))
-               (styles (when (resolve-styles (first rest))
-                         (resolve-styles (pop rest))))
-               (children (mapcar #'parse-node rest)))
-          (make-node :type type
-                     :content content
-                     :styles styles
-                     :children children))
-        (let ((result (apply (car form) (cdr form))))
-          (parse-node result)))))
+;; Element macros
+(defmacro vstack (styles &body children)
+  `(make-node :type :vstack
+              :styles ,(expand-styles styles)
+              :children (flatten-children (list ,@children))))
 
+(defmacro hstack (styles &body children)
+  `(make-node :type :hstack
+              :styles ,(expand-styles styles)
+              :children (flatten-children (list ,@children))))
+
+(defmacro rect (styles &body children)
+  `(make-node :type :rect
+              :styles ,(expand-styles styles)
+              :children (flatten-children (list ,@children))))
+
+(defmacro text (content &optional styles)
+  `(make-node :type :text
+              :content ,content
+              :styles ,(expand-styles styles)))
+
+(defmacro image (path &optional styles)
+  `(make-node :type :image
+              :content ,path
+              :styles ,(expand-styles styles)))
+
+;; Element creation
 (defun create-element (node)
   "Create the GPU element for a node. Returns the ID or nil."
   (let ((styles (node-styles node)))
     (case (node-type node)
       (:rect
-       (let ((id (make-rect)))
-         (let ((c (getf styles :color)))    (when c (rect-color id c)))
-         (let ((r (getf styles :radius)))   (when r (rect-radius id r)))
-         (let ((bw (getf styles :border-width)))
-           (when bw (rect-border id bw (or (getf styles :border-color) #x000000FF))))
-         id))
+        (let ((id (make-rect)))
+          (let ((c (getf styles :color)))    (when c (rect-color id c)))
+          (let ((r (getf styles :radius)))   (when r (rect-radius id r)))
+          (let ((bw (getf styles :border-width)))
+            (when bw (rect-border id bw (or (getf styles :border-color) #x000000FF))))
+          id))
       (:text
-       (let* ((size (or (getf styles :size) 16))
-              (lh (or (getf styles :line-height) (1+ size)))
-              (id (make-text size lh)))
-         (when (node-content node) (text-set id (node-content node)))
-         (let ((c (getf styles :color))) (when c (text-color id c)))
-         id))
+        (let* ((size (or (getf styles :size) 16))
+               (lh (or (getf styles :line-height) (* size 1.4)))
+               (id (make-text size lh)))
+          (when (node-content node) (text-set id (node-content node)))
+          (let ((c (getf styles :color))) (when c (text-color id c)))
+          id))
       (:image
-       (when (node-content node)
-         (make-image (node-content node))))
+        (when (node-content node)
+          (make-image (node-content node))))
       (otherwise nil))))
 
 (defun create-elements (ui node)
@@ -76,18 +89,7 @@
   (dolist (child (node-children node))
     (create-elements ui child)))
 
-(defun destroy-ui (ui)
-  "Destroy all GPU elements in a UI tree."
-  (labels ((walk (node)
-			 (when (node-id node)
-			   (case (node-type node)
-				 (:rect  (rect-destroy (node-id node)))
-				 (:text  (text-destroy (node-id node)))
-				 (:image (image-destroy (node-id node)))))
-			 (dolist (child (node-children node))
-			   (walk child))))
-	(walk (ui-root ui))))
-
+;; Layout
 (defun vertical-p (type)
   (member type '(:vstack :rect)))
 
@@ -163,11 +165,24 @@
         (case (node-type node)
           (:rect  (rect-position id x y) (rect-size id w h))
           (:text  (text-position id x y)
-		   (text-bounds id (truncate x) (truncate y)
-						(truncate (+ x w)) (truncate (+ y h))))
+            (text-bounds id (truncate x) (truncate y)
+                         (truncate (+ x w)) (truncate (+ y h))))
           (:image (image-position id x y) (image-size id w h))))))
   (dolist (child (node-children node))
     (apply-layout child)))
+
+;; UI
+(defun destroy-ui (ui)
+  "Destroy all GPU elements in a UI tree."
+  (labels ((walk (node)
+             (when (node-id node)
+               (case (node-type node)
+                 (:rect  (rect-destroy (node-id node)))
+                 (:text  (text-destroy (node-id node)))
+                 (:image (image-destroy (node-id node)))))
+             (dolist (child (node-children node))
+               (walk child))))
+    (walk (ui-root ui))))
 
 (defun ui-ref (ui name)
   "Get the GPU element ID for a named element."
@@ -184,18 +199,16 @@
     (compute-layout (ui-root ui) x y w h)
     (apply-layout (ui-root ui))))
 
-(defun make-ui-from-tree (styles children-forms)
-  "Build a UI: parse forms, create elements, compute layout."
-  (let* ((root (make-node :type :vstack
-                          :styles styles
-                          :children (mapcar #'parse-node children-forms)))
-         (ui (make-ui :root root
-                      :names (make-hash-table :test #'eq))))
+(defun build-ui (root)
+  "Create GPU elements and compute layout for a node tree."
+  (let ((ui (make-ui :root root :names (make-hash-table :test #'eq))))
     (create-elements ui root)
     (layout ui)
     ui))
 
-(defmacro defui (name styles &body children)
+(defmacro defui (name styles &body body)
+  "Define a UI tree with full Lisp expressiveness."
   `(progn
-     (when (boundp ',name) (destroy-ui ,name))
-     (defparameter ,name (make-ui-from-tree ',styles ',children))))
+     (when (boundp ',name) (destroy-ui (symbol-value ',name)))
+     (defparameter ,name
+       (build-ui (vstack ,styles ,@body)))))

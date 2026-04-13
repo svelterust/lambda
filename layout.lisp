@@ -73,6 +73,8 @@
         (let* ((size (or (getf styles :size) 16))
                (lh (or (getf styles :line-height) (* size 1.4)))
                (id (make-text size lh)))
+          (let ((f (or (getf styles :family) *default-font*)))
+            (when f (text-family id f)))
           (let ((w (getf styles :weight))) (when w (text-weight id w)))
           (when (node-content node) (text-set id (node-content node)))
           (let ((c (getf styles :color))) (when c (text-color id c)))

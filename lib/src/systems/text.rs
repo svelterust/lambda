@@ -1,6 +1,6 @@
 use glyphon::{
-    Attrs, AttrsList, Buffer, Cache, Color, FontSystem, Metrics, Resolution, Shaping, SwashCache,
-    TextArea, TextAtlas, TextBounds, TextRenderer, Viewport, Weight,
+    Attrs, AttrsList, Buffer, Cache, Color, FamilyOwned, FontSystem, Metrics, Resolution, Shaping,
+    SwashCache, TextArea, TextAtlas, TextBounds, TextRenderer, Viewport, Weight,
 };
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
@@ -23,6 +23,7 @@ struct TextSlot {
     bounds: TextBounds,
     color: Color,
     weight: Weight,
+    family: FamilyOwned,
 }
 
 pub struct Text {
@@ -145,6 +146,7 @@ pub extern "C" fn lambda_text_create(font_size: f32, line_height: f32) -> u32 {
             },
             color: Color::rgb(0, 0, 0),
             weight: Weight::NORMAL,
+            family: FamilyOwned::SansSerif,
         },
     );
     id
@@ -166,13 +168,11 @@ pub extern "C" fn lambda_text_set(id: u32, ptr: *const u8, len: u32) {
         font_system, slots, ..
     } = &mut *text;
     if let Some(slot) = slots.get_mut(&id) {
-        slot.buffer.set_text(
-            font_system,
-            s,
-            &Attrs::new().weight(slot.weight),
-            Shaping::Advanced,
-            None,
-        );
+        let attrs = Attrs::new()
+            .family(slot.family.as_family())
+            .weight(slot.weight);
+        slot.buffer
+            .set_text(font_system, s, &attrs, Shaping::Advanced, None);
         slot.buffer.shape_until_scroll(font_system, false);
     }
 }
@@ -229,7 +229,31 @@ pub extern "C" fn lambda_text_weight(id: u32, weight: u32) {
     } = &mut *text;
     if let Some(slot) = slots.get_mut(&id) {
         slot.weight = Weight(weight as u16);
-        let attrs = Attrs::new().weight(slot.weight);
+        let attrs = Attrs::new()
+            .family(slot.family.as_family())
+            .weight(slot.weight);
+        for line in &mut slot.buffer.lines {
+            line.set_attrs_list(AttrsList::new(&attrs));
+        }
+        slot.buffer.shape_until_scroll(font_system, false);
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn lambda_text_family(id: u32, ptr: *const u8, len: u32) {
+    let bytes = unsafe { std::slice::from_raw_parts(ptr, len as usize) };
+    let Ok(s) = std::str::from_utf8(bytes) else {
+        return;
+    };
+    let mut text = text_lock();
+    let Text {
+        font_system, slots, ..
+    } = &mut *text;
+    if let Some(slot) = slots.get_mut(&id) {
+        slot.family = FamilyOwned::Name(s.into());
+        let attrs = Attrs::new()
+            .family(slot.family.as_family())
+            .weight(slot.weight);
         for line in &mut slot.buffer.lines {
             line.set_attrs_list(AttrsList::new(&attrs));
         }

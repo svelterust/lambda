@@ -1,7 +1,7 @@
 (in-package :lambda)
 
 (defparameter *input-style*
-  '(:color #xFBFBFCFF :height 75 :radius 8 :border-width 1.5 :border-color #xCFD5E2FF :padding 25))
+  '(:color #xFBFBFCFF :height 75 :radius 8 :border-width 1.5 :border-color #xCFD5E2FF :padding 20))
 
 (defun input (label)
   (rect *input-style*
@@ -17,8 +17,8 @@
   (input "Email")
   (divider)
   (vstack (:align :center :gap 8)
-    (text "Lambda" (:size 48 :color #x111111FF))
-    (text "GPU-powered UI from Common Lisp." (:size 18 :color #x666666FF)))
+    (text "Lambda" (:size 54 :color #x111111FF))
+    (text "GPU-powered UI from Common Lisp." (:size 18 :weight 500 :color #x666666FF)))
   (hstack (:justify :end :gap 12)
-    (text "Cancel" (:size 16 :color #x666666FF))
-    (text "Submit" (:size 16 :color #x3B82F6FF))))
+    (text "Cancel" (:size 16 :weight 500 :color #x666666FF))
+    (text "Submit" (:size 16 :weight 500 :color #x3B82F6FF))))

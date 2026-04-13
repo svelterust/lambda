@@ -9,10 +9,19 @@
 (cffi:defcfun ("lambda_text_color"    text-color)    :void    (id :uint32) (rgba :uint32))
 (cffi:defcfun ("lambda_text_metrics"  text-metrics)  :void    (id :uint32) (font-size :number) (line-height :number))
 (cffi:defcfun ("lambda_text_weight"  text-weight)   :void    (id :uint32) (weight :uint32))
+(cffi:defcfun ("lambda_text_family"  %text-family)  :void    (id :uint32) (ptr :pointer) (len :uint32))
 (cffi:defcfun ("lambda_text_width"   text-width)    :float   (id :uint32))
 (cffi:defcfun ("lambda_text_height"  text-height)   :float   (id :uint32))
+
+(defparameter *default-font* "Inter")
 
 (defun text-set (id string)
   (let ((octets (sb-ext:string-to-octets string :external-format :utf-8)))
     (sb-sys:with-pinned-objects (octets)
       (%text-set id (sb-sys:vector-sap octets) (length octets)))))
+
+(defun text-family (id family)
+  (let ((octets (sb-ext:string-to-octets family :external-format :utf-8)))
+    (sb-sys:with-pinned-objects (octets)
+      (%text-family id (sb-sys:vector-sap octets) (length octets)))))
+

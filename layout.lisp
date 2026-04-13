@@ -73,6 +73,7 @@
         (let* ((size (or (getf styles :size) 16))
                (lh (or (getf styles :line-height) (* size 1.4)))
                (id (make-text size lh)))
+          (let ((w (getf styles :weight))) (when w (text-weight id w)))
           (when (node-content node) (text-set id (node-content node)))
           (let ((c (getf styles :color))) (when c (text-color id c)))
           id))
@@ -90,29 +91,21 @@
     (create-elements ui child)))
 
 ;; Layout
-
 (defun vertical-p (type)
   (member type '(:vstack :rect)))
 
-(defun resolve-width (node available)
-  (let ((sw (getf (node-styles node) :width))
+(defun resolve-size (node axis available)
+  "Resolve width (axis :w) or height (axis :h) for a node."
+  (let ((sv (getf (node-styles node) (if (eq axis :w) :width :height)))
         (id (node-id node)))
     (cond
-      ((numberp sw) sw)
-      ((eq sw :fill) available)
-      ((and (eq (node-type node) :text) id) (text-width id))
-      ((and (eq (node-type node) :image) id) (image-width id))
-      (t available))))
-
-(defun resolve-height (node available)
-  (let ((sh (getf (node-styles node) :height))
-        (id (node-id node)))
-    (cond
-      ((numberp sh) sh)
-      ((eq sh :fill) available)
-      ((and (eq (node-type node) :text) id) (text-height id))
-      ((and (eq (node-type node) :image) id) (image-height id))
-      (t nil))))
+      ((numberp sv) sv)
+      ((eq sv :fill) available)
+      ((and (eq (node-type node) :text) id)
+       (if (eq axis :w) (text-width id) (text-height id)))
+      ((and (eq (node-type node) :image) id)
+       (if (eq axis :w) (image-width id) (image-height id)))
+      (t (if (eq axis :w) available nil)))))
 
 (defun measure-node (node available-w available-h)
   "Compute width and height for a node and all descendants."
@@ -120,7 +113,7 @@
          (padding (or (getf styles :padding) 0))
          (gap (or (getf styles :gap) 0))
          (vertical (vertical-p (node-type node)))
-         (w (resolve-width node available-w))
+         (w (resolve-size node :w available-w))
          (content-w (- w (* 2 padding)))
          (children (node-children node))
          (n (length children)))
@@ -145,7 +138,7 @@
                             (- available-h (* 2 padding)))))))
 
     (setf (node-height node)
-          (or (resolve-height node available-h)
+          (or (resolve-size node :h available-h)
               (+ (* 2 padding)
                  (if children
                      (if vertical
@@ -199,11 +192,6 @@
               (position-node child cx (+ cy cross-offset))
               (incf cx (+ (node-width child) actual-gap))))))))
 
-(defun compute-layout (node x y available-w available-h)
-  "Measure then position a node tree."
-  (measure-node node available-w available-h)
-  (position-node node x y))
-
 (defun apply-layout (node)
   "Walk the tree, apply computed positions/sizes via FFI."
   (let ((id (node-id node)))
@@ -239,13 +227,15 @@
 
 (defun layout (ui)
   "Recompute layout and apply positions/sizes."
-  (let* ((styles (node-styles (ui-root ui)))
+  (let* ((root (ui-root ui))
+         (styles (node-styles root))
          (x (or (getf styles :x) 0))
          (y (or (getf styles :y) 0))
          (w (or (getf styles :width) (window-width)))
          (h (or (getf styles :height) (window-height))))
-    (compute-layout (ui-root ui) x y w h)
-    (apply-layout (ui-root ui))))
+    (measure-node root w h)
+    (position-node root x y)
+    (apply-layout root)))
 
 (defun build-ui (root)
   "Create GPU elements and compute layout for a node tree."

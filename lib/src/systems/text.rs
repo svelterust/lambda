@@ -1,6 +1,6 @@
 use glyphon::{
-    Attrs, Buffer, Cache, Color, Family, FontSystem, Metrics, Resolution, Shaping, SwashCache,
-    TextArea, TextAtlas, TextBounds, TextRenderer, Viewport,
+    Attrs, AttrsList, Buffer, Cache, Color, FontSystem, Metrics, Resolution, Shaping, SwashCache,
+    TextArea, TextAtlas, TextBounds, TextRenderer, Viewport, Weight,
 };
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
@@ -22,6 +22,7 @@ struct TextSlot {
     y: f32,
     bounds: TextBounds,
     color: Color,
+    weight: Weight,
 }
 
 pub struct Text {
@@ -69,11 +70,13 @@ impl Text {
     pub fn resize(&mut self, width: u32, height: u32) {
         self.width = width;
         self.height = height;
-        let fs = &mut self.font_system as *mut FontSystem;
-        for slot in self.slots.values_mut() {
+        let Text {
+            font_system, slots, ..
+        } = self;
+        for slot in slots.values_mut() {
             slot.buffer
-                .set_size(unsafe { &mut *fs }, Some(width as f32), Some(height as f32));
-            slot.buffer.shape_until_scroll(unsafe { &mut *fs }, false);
+                .set_size(font_system, Some(width as f32), Some(height as f32));
+            slot.buffer.shape_until_scroll(font_system, false);
         }
     }
 
@@ -141,6 +144,7 @@ pub extern "C" fn lambda_text_create(font_size: f32, line_height: f32) -> u32 {
                 bottom: h as i32,
             },
             color: Color::rgb(0, 0, 0),
+            weight: Weight::NORMAL,
         },
     );
     id
@@ -158,16 +162,18 @@ pub extern "C" fn lambda_text_set(id: u32, ptr: *const u8, len: u32) {
         return;
     };
     let mut text = text_lock();
-    let fs = &mut text.font_system as *mut FontSystem;
-    if let Some(slot) = text.slots.get_mut(&id) {
+    let Text {
+        font_system, slots, ..
+    } = &mut *text;
+    if let Some(slot) = slots.get_mut(&id) {
         slot.buffer.set_text(
-            unsafe { &mut *fs },
+            font_system,
             s,
-            &Attrs::new().family(Family::Name("JetBrains Mono NL")),
+            &Attrs::new().weight(slot.weight),
             Shaping::Advanced,
             None,
         );
-        slot.buffer.shape_until_scroll(unsafe { &mut *fs }, false);
+        slot.buffer.shape_until_scroll(font_system, false);
     }
 }
 
@@ -205,11 +211,29 @@ pub extern "C" fn lambda_text_color(id: u32, rgba: u32) {
 #[unsafe(no_mangle)]
 pub extern "C" fn lambda_text_metrics(id: u32, font_size: f32, line_height: f32) {
     let mut text = text_lock();
-    let fs = &mut text.font_system as *mut FontSystem;
-    if let Some(slot) = text.slots.get_mut(&id) {
+    let Text {
+        font_system, slots, ..
+    } = &mut *text;
+    if let Some(slot) = slots.get_mut(&id) {
         slot.buffer
-            .set_metrics(unsafe { &mut *fs }, Metrics::new(font_size, line_height));
-        slot.buffer.shape_until_scroll(unsafe { &mut *fs }, false);
+            .set_metrics(font_system, Metrics::new(font_size, line_height));
+        slot.buffer.shape_until_scroll(font_system, false);
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn lambda_text_weight(id: u32, weight: u32) {
+    let mut text = text_lock();
+    let Text {
+        font_system, slots, ..
+    } = &mut *text;
+    if let Some(slot) = slots.get_mut(&id) {
+        slot.weight = Weight(weight as u16);
+        let attrs = Attrs::new().weight(slot.weight);
+        for line in &mut slot.buffer.lines {
+            line.set_attrs_list(AttrsList::new(&attrs));
+        }
+        slot.buffer.shape_until_scroll(font_system, false);
     }
 }
 

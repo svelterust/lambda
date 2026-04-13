@@ -239,6 +239,16 @@
     (position-node root x y)
     (apply-layout root)))
 
+(defun node-at (node x y &optional prop)
+  "Find the deepest node at (x, y). If PROP, only match nodes with that style property."
+  (when (and (node-x node)
+             (<= (node-x node) x (+ (node-x node) (node-width node)))
+             (<= (node-y node) y (+ (node-y node) (node-height node))))
+    (or (some (lambda (child) (node-at child x y prop))
+              (reverse (node-children node)))
+        (when (or (null prop) (getf (node-styles node) prop))
+          node))))
+
 (defun build-ui (root)
   "Create GPU elements and compute layout for a node tree."
   (let ((ui (make-ui :root root :names (make-hash-table :test #'eq))))

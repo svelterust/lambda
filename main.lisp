@@ -4,7 +4,9 @@
   '(:color #xFBFBFC :height 75 :radius 8 :padding 20 :border-width 1.5 :border-color #xCFD5E2))
 
 (defun input (label)
-  (rect :style *input-style* :on-click (lambda (node) (format t "~&clicked: ~A~%" node))
+  (rect :style *input-style*
+    :on-click (lambda (node)
+                (node-set node :color #xEEF2FF :border-color #x3B82F6))
     (text label :size 24 :color #x707A8C)))
 
 (defun hr ()

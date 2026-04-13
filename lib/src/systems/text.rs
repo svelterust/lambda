@@ -124,13 +124,16 @@ impl Text {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn lambda_text_create(font_size: f32, line_height: f32) -> u32 {
+pub extern "C" fn lambda_text_create(font_size: f32) -> u32 {
     let mut text = text_lock();
     let id = text.next_id;
     text.next_id += 1;
     let w = text.width;
     let h = text.height;
-    let mut buffer = Buffer::new(&mut text.font_system, Metrics::new(font_size, line_height));
+    let mut buffer = Buffer::new(
+        &mut text.font_system,
+        Metrics::new(font_size, font_size * 1.4),
+    );
     buffer.set_size(&mut text.font_system, Some(w as f32), Some(h as f32));
     text.slots.insert(
         id,
@@ -222,6 +225,19 @@ pub extern "C" fn lambda_text_metrics(id: u32, font_size: f32, line_height: f32)
     if let Some(slot) = slots.get_mut(&id) {
         slot.buffer
             .set_metrics(font_system, Metrics::new(font_size, line_height));
+        slot.buffer.shape_until_scroll(font_system, false);
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn lambda_text_font_size(id: u32, font_size: f32) {
+    let mut text = text_lock();
+    let Text {
+        font_system, slots, ..
+    } = &mut *text;
+    if let Some(slot) = slots.get_mut(&id) {
+        slot.buffer
+            .set_metrics(font_system, Metrics::new(font_size, font_size * 1.4));
         slot.buffer.shape_until_scroll(font_system, false);
     }
 }

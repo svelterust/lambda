@@ -7,4 +7,6 @@
 (cffi:defcfun ("lambda_rect_size"     rect-size)     :void   (id :uint32) (w :number) (h :number))
 (cffi:defcfun ("lambda_rect_color"    rect-color)    :void   (id :uint32) (rgba :uint32))
 (cffi:defcfun ("lambda_rect_radius"   rect-radius)   :void   (id :uint32) (radius :number))
-(cffi:defcfun ("lambda_rect_border"   rect-border)   :void   (id :uint32) (width :number) (rgba :uint32))
+(cffi:defcfun ("lambda_rect_border"       rect-border)       :void (id :uint32) (width :number) (rgba :uint32))
+(cffi:defcfun ("lambda_rect_border_width" rect-border-width) :void (id :uint32) (width :number))
+(cffi:defcfun ("lambda_rect_border_color" rect-border-color) :void (id :uint32) (rgba :uint32))

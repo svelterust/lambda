@@ -1,7 +1,7 @@
 (in-package :lambda)
 
 ;;; FFI
-(cffi:defcfun ("lambda_text_create"   make-text)     :uint32  (font-size :number) (line-height :number))
+(cffi:defcfun ("lambda_text_create"   make-text)     :uint32  (font-size :number))
 (cffi:defcfun ("lambda_text_destroy"  text-destroy)  :void    (id :uint32))
 (cffi:defcfun ("lambda_text_set"      %text-set)     :void    (id :uint32) (ptr :pointer) (len :uint32))
 (cffi:defcfun ("lambda_text_position" text-position)  :void   (id :uint32) (x :number) (y :number))
@@ -10,6 +10,7 @@
 (cffi:defcfun ("lambda_text_metrics"  text-metrics)  :void    (id :uint32) (font-size :number) (line-height :number))
 (cffi:defcfun ("lambda_text_weight"  text-weight)   :void    (id :uint32) (weight :uint32))
 (cffi:defcfun ("lambda_text_family"  %text-family)  :void    (id :uint32) (ptr :pointer) (len :uint32))
+(cffi:defcfun ("lambda_text_font_size" text-font-size) :void  (id :uint32) (font-size :number))
 (cffi:defcfun ("lambda_text_width"   text-width)    :float   (id :uint32))
 (cffi:defcfun ("lambda_text_height"  text-height)   :float   (id :uint32))
 

@@ -78,26 +78,21 @@
   (let ((props (node-props node)))
     (case (node-type node)
       (:rect
-        (let ((id (make-rect)))
-          (let ((c (getf props :color)))    (when c (rect-color id c)))
-          (let ((r (getf props :radius)))   (when r (rect-radius id r)))
-          (let ((bw (getf props :border-width)))
-            (when bw (rect-border id bw (or (getf props :border-color) #x000000))))
-          id))
+       (setf (node-id node) (make-rect))
+       (apply #'node-set node props)
+       (node-id node))
       (:text
-        (let* ((size (or (getf props :size) 20))
-               (lh (or (getf props :line-height) (* size 1.4)))
-               (id (make-text size lh)))
-          (let ((f (or (getf props :family) *default-font*)))
-            (when f (text-family id f)))
-          (let ((w (getf props :weight))) (when w (text-weight id w)))
-          (when (node-content node) (text-set id (node-content node)))
-          (let ((c (getf props :color))) (when c (text-color id c)))
-          id))
+       (setf (node-id node) (make-text (or (getf props :size) 20)))
+       (unless (getf props :family)
+         (when *default-font* (text-family (node-id node) *default-font*)))
+       (when (node-content node)
+         (text-set (node-id node) (node-content node)))
+       (apply #'node-set node props)
+       (node-id node))
       (:image
-        (when (node-content node)
-          (make-image (node-content node))))
-      (otherwise nil))))
+       (when (node-content node)
+         (setf (node-id node) (make-image (node-content node)))
+         (node-id node))))))
 
 (defun create-elements (ui node)
   "Walk the tree, create GPU elements, register :name entries."
@@ -230,18 +225,41 @@
         (case (node-type node)
           (:rect  (rect-position id x y) (rect-size id w h))
           (:text  (text-position id x y)
-                  (text-bounds id (truncate x) (truncate y)
-                               (truncate (+ x w)) (truncate (+ y h))))
+           (text-bounds id (truncate x) (truncate y)
+                        (truncate (+ x w)) (truncate (+ y h))))
           (:image (image-position id x y) (image-size id w h))))))
   (dolist (child (node-children node))
     (apply-layout child)))
 
 ;; Public API
+(defun node-set (node &rest props)
+  "Update properties of a node. Props use the same keywords as element macros."
+  (let ((id (node-id node))
+        (type (node-type node)))
+    (loop for (key val) on props by #'cddr do
+      (case key
+        (:content (setf (node-content node) val)
+         (when (and id (eq type :text)) (text-set id val)))
+        (otherwise
+         (setf (getf (node-props node) key) val)
+         (when id
+           (case type
+             (:rect
+              (case key
+                (:color        (rect-color id val))
+                (:radius       (rect-radius id val))
+                (:border-width (rect-border-width id val))
+                (:border-color (rect-border-color id val))))
+             (:text
+              (case key
+                (:color  (text-color id val))
+                (:size   (text-font-size id val))
+                (:weight (text-weight id val))
+                (:family (text-family id val)))))))))))
 
-(defun ui-ref (ui name)
-  "Get the GPU element ID for a named element."
-  (let ((node (gethash name (ui-names ui))))
-    (when node (node-id node))))
+(defun node-get (ui name)
+  "Get the named node from a UI tree."
+  (gethash name (ui-names ui)))
 
 (defun layout (ui)
   "Recompute layout and apply positions/sizes."
@@ -286,5 +304,5 @@
        (defparameter ,name
          (build-ui (vstack ,@props ,@children)))
        (handle-input (type key mods x y)
-         (case type
-           (:mouse-down (dispatch-event ,name :on-click x y)))))))
+                     (case type
+                       (:mouse-down (dispatch-event ,name :on-click x y)))))))

@@ -372,3 +372,17 @@ pub extern "C" fn lambda_rect_border(id: u32, width: f32, rgba: u32) {
         rect.border_color = rgba_to_f32(rgba);
     }
 }
+
+#[unsafe(no_mangle)]
+pub extern "C" fn lambda_rect_border_width(id: u32, width: f32) {
+    if let Some(rect) = rects_lock().slots.get_mut(&id) {
+        rect.border_width = width;
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn lambda_rect_border_color(id: u32, rgba: u32) {
+    if let Some(rect) = rects_lock().slots.get_mut(&id) {
+        rect.border_color = rgba_to_f32(rgba);
+    }
+}

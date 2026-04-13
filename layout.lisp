@@ -90,6 +90,7 @@
     (create-elements ui child)))
 
 ;; Layout
+
 (defun vertical-p (type)
   (member type '(:vstack :rect)))
 
@@ -113,48 +114,95 @@
       ((and (eq (node-type node) :image) id) (image-height id))
       (t nil))))
 
-(defun compute-layout (node x y available-w available-h)
-  "Compute x, y, width, height for a node and all descendants."
+(defun measure-node (node available-w available-h)
+  "Compute width and height for a node and all descendants."
   (let* ((styles (node-styles node))
          (padding (or (getf styles :padding) 0))
          (gap (or (getf styles :gap) 0))
+         (vertical (vertical-p (node-type node)))
          (w (resolve-width node available-w))
-         (content-x (+ x padding))
-         (content-y (+ y padding))
          (content-w (- w (* 2 padding)))
-         (cursor-x content-x)
-         (cursor-y content-y))
+         (children (node-children node))
+         (n (length children)))
 
-    (setf (node-x node) x
-          (node-y node) y
-          (node-width node) w)
+    (setf (node-width node) w)
 
-    (let ((n (length (node-children node))))
-      (loop for child in (node-children node)
-            for i from 0
-            do (if (vertical-p (node-type node))
-                   (progn
-                     (compute-layout child cursor-x cursor-y
-                                     content-w (- available-h (- cursor-y y)))
-                     (incf cursor-y (node-height child))
-                     (when (< i (1- n)) (incf cursor-y gap)))
-                   (progn
-                     (compute-layout child cursor-x cursor-y
-                                     (- content-w (- cursor-x content-x))
-                                     (- available-h (* 2 padding)))
-                     (incf cursor-x (node-width child))
-                     (when (< i (1- n)) (incf cursor-x gap))))))
+    (if vertical
+        (dolist (child children)
+          (measure-node child content-w (- available-h (* 2 padding))))
+        (let* ((explicit-w (loop for c in children
+                                 for sw = (getf (node-styles c) :width)
+                                 when (numberp sw) sum sw))
+               (total-gap (* gap (max 0 (1- n))))
+               (remaining (- content-w explicit-w total-gap))
+               (flex-count (count-if-not
+                            (lambda (c) (numberp (getf (node-styles c) :width)))
+                            children))
+               (flex-w (if (> flex-count 0) (max 0 (/ remaining flex-count)) 0)))
+          (dolist (child children)
+            (let ((sw (getf (node-styles child) :width)))
+              (measure-node child (if (numberp sw) sw flex-w)
+                            (- available-h (* 2 padding)))))))
 
-    (let ((h (resolve-height node available-h)))
-      (setf (node-height node)
-            (or h
-                (+ (* 2 padding)
-                   (if (node-children node)
-                       (if (vertical-p (node-type node))
-                           (- cursor-y content-y)
-                           (loop for c in (node-children node)
-                                 maximize (node-height c)))
-                       0)))))))
+    (setf (node-height node)
+          (or (resolve-height node available-h)
+              (+ (* 2 padding)
+                 (if children
+                     (if vertical
+                         (+ (loop for c in children sum (node-height c))
+                            (* gap (max 0 (1- n))))
+                         (loop for c in children maximize (node-height c)))
+                     0))))))
+
+(defun position-node (node x y)
+  "Set x, y for a node and all descendants. Sizes must already be computed."
+  (setf (node-x node) x (node-y node) y)
+
+  (let* ((styles (node-styles node))
+         (padding (or (getf styles :padding) 0))
+         (gap (or (getf styles :gap) 0))
+         (align (or (getf styles :align) :start))
+         (justify (or (getf styles :justify) :start))
+         (vertical (vertical-p (node-type node)))
+         (content-w (- (node-width node) (* 2 padding)))
+         (content-h (- (node-height node) (* 2 padding)))
+         (children (node-children node))
+         (n (length children))
+         (children-main (if vertical
+                            (loop for c in children sum (node-height c))
+                            (loop for c in children sum (node-width c))))
+         (main-avail (if vertical content-h content-w))
+         (actual-gap (if (and (eq justify :between) (> n 1))
+                         (/ (- main-avail children-main) (1- n))
+                         gap))
+         (main-offset (case justify
+                        (:center (/ (- main-avail children-main
+                                       (* gap (max 0 (1- n)))) 2))
+                        (:end (- main-avail children-main
+                                 (* gap (max 0 (1- n)))))
+                        (otherwise 0)))
+         (cx (+ x padding (if vertical 0 main-offset)))
+         (cy (+ y padding (if vertical main-offset 0))))
+
+    (dolist (child children)
+      (let* ((cross-avail (if vertical content-w content-h))
+             (cross-size (if vertical (node-width child) (node-height child)))
+             (cross-offset (case align
+                             (:center (/ (- cross-avail cross-size) 2))
+                             (:end (- cross-avail cross-size))
+                             (otherwise 0))))
+        (if vertical
+            (progn
+              (position-node child (+ cx cross-offset) cy)
+              (incf cy (+ (node-height child) actual-gap)))
+            (progn
+              (position-node child cx (+ cy cross-offset))
+              (incf cx (+ (node-width child) actual-gap))))))))
+
+(defun compute-layout (node x y available-w available-h)
+  "Measure then position a node tree."
+  (measure-node node available-w available-h)
+  (position-node node x y))
 
 (defun apply-layout (node)
   "Walk the tree, apply computed positions/sizes via FFI."

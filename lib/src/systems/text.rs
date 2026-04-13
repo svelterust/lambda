@@ -199,6 +199,11 @@ pub extern "C" fn lambda_text_bounds(id: u32, left: i32, top: i32, right: i32, b
 
 #[unsafe(no_mangle)]
 pub extern "C" fn lambda_text_color(id: u32, rgba: u32) {
+    let rgba = if rgba <= 0xFFFFFF {
+        (rgba << 8) | 0xFF
+    } else {
+        rgba
+    };
     if let Some(slot) = text_lock().slots.get_mut(&id) {
         let r = ((rgba >> 24) & 0xFF) as u8;
         let g = ((rgba >> 16) & 0xFF) as u8;

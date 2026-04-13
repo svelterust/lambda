@@ -7,7 +7,7 @@
   "One element in the UI tree."
   type          ; :vstack :hstack :rect :text :image
   content       ; string or nil (text content, image path)
-  styles        ; plist (:color #xFF0000FF :size 24 ...)
+  props         ; plist (:color #xFF0000FF :size 24 ...)
   children      ; list of child nodes
   id            ; u32 GPU element ID, nil for layout-only nodes
   x y width height) ; computed by layout
@@ -25,18 +25,18 @@
           forms))
 
 (defun split-args (args)
-  "Split args into (styles children). Styles are keyword-value pairs from the front."
-  (let ((styles nil)
+  "Split args into (props children). Props are keyword-value pairs from the front."
+  (let ((props nil)
         (rest args))
     (loop while (and rest (keywordp (car rest)))
-          do (push (pop rest) styles)
-             (push (pop rest) styles))
-    (values (nreverse styles) rest)))
+          do (push (pop rest) props)
+             (push (pop rest) props))
+    (values (nreverse props) rest)))
 
-(defun expand-flat-styles (styles)
-  "Generate code to build a styles plist, handling :style merging."
-  (let ((style-val (getf styles :style))
-        (rest (loop for (k v) on styles by #'cddr
+(defun expand-props (props)
+  "Generate code to build a props plist, handling :style merging."
+  (let ((style-val (getf props :style))
+        (rest (loop for (k v) on props by #'cddr
                     unless (eq k :style) collect k and collect v)))
     (if style-val
         (if (and (listp style-val) (not (keywordp (car style-val))))
@@ -46,54 +46,53 @@
 
 ;; Element macros
 (defmacro vstack (&rest args)
-  (multiple-value-bind (styles children) (split-args args)
+  (multiple-value-bind (props children) (split-args args)
     `(make-node :type :vstack
-                :styles ,(expand-flat-styles styles)
+                :props ,(expand-props props)
                 :children (flatten-children (list ,@children)))))
 
 (defmacro hstack (&rest args)
-  (multiple-value-bind (styles children) (split-args args)
+  (multiple-value-bind (props children) (split-args args)
     `(make-node :type :hstack
-                :styles ,(expand-flat-styles styles)
+                :props ,(expand-props props)
                 :children (flatten-children (list ,@children)))))
 
 (defmacro rect (&rest args)
-  (multiple-value-bind (styles children) (split-args args)
+  (multiple-value-bind (props children) (split-args args)
     `(make-node :type :rect
-                :styles ,(expand-flat-styles styles)
+                :props ,(expand-props props)
                 :children (flatten-children (list ,@children)))))
 
-(defmacro text (content &rest style-args)
+(defmacro text (content &rest prop-args)
   `(make-node :type :text
               :content ,content
-              :styles ,(expand-flat-styles style-args)))
+              :props ,(expand-props prop-args)))
 
-(defmacro image (path &rest style-args)
+(defmacro image (path &rest prop-args)
   `(make-node :type :image
               :content ,path
-              :styles ,(expand-flat-styles style-args)))
+              :props ,(expand-props prop-args)))
 
-;; Element creation
 (defun create-element (node)
   "Create the GPU element for a node. Returns the ID or nil."
-  (let ((styles (node-styles node)))
+  (let ((props (node-props node)))
     (case (node-type node)
       (:rect
         (let ((id (make-rect)))
-          (let ((c (getf styles :color)))    (when c (rect-color id c)))
-          (let ((r (getf styles :radius)))   (when r (rect-radius id r)))
-          (let ((bw (getf styles :border-width)))
-            (when bw (rect-border id bw (or (getf styles :border-color) #x000000FF))))
+          (let ((c (getf props :color)))    (when c (rect-color id c)))
+          (let ((r (getf props :radius)))   (when r (rect-radius id r)))
+          (let ((bw (getf props :border-width)))
+            (when bw (rect-border id bw (or (getf props :border-color) #x000000))))
           id))
       (:text
-        (let* ((size (or (getf styles :size) 20))
-               (lh (or (getf styles :line-height) (* size 1.4)))
+        (let* ((size (or (getf props :size) 20))
+               (lh (or (getf props :line-height) (* size 1.4)))
                (id (make-text size lh)))
-          (let ((f (or (getf styles :family) *default-font*)))
+          (let ((f (or (getf props :family) *default-font*)))
             (when f (text-family id f)))
-          (let ((w (getf styles :weight))) (when w (text-weight id w)))
+          (let ((w (getf props :weight))) (when w (text-weight id w)))
           (when (node-content node) (text-set id (node-content node)))
-          (let ((c (getf styles :color))) (when c (text-color id c)))
+          (let ((c (getf props :color))) (when c (text-color id c)))
           id))
       (:image
         (when (node-content node)
@@ -103,7 +102,7 @@
 (defun create-elements (ui node)
   "Walk the tree, create GPU elements, register :name entries."
   (setf (node-id node) (create-element node))
-  (let ((name (getf (node-styles node) :name)))
+  (let ((name (getf (node-props node) :name)))
     (when name (setf (gethash name (ui-names ui)) node)))
   (dolist (child (node-children node))
     (create-elements ui child)))
@@ -126,7 +125,7 @@
 
 (defun resolve-size (node axis available)
   "Resolve width (axis :w) or height (axis :h) for a node."
-  (let ((sv (getf (node-styles node) (if (eq axis :w) :width :height)))
+  (let ((sv (getf (node-props node) (if (eq axis :w) :width :height)))
         (id (node-id node)))
     (cond
       ((numberp sv) sv)
@@ -139,9 +138,9 @@
 
 (defun measure-node (node available-w available-h)
   "Compute width and height for a node and all descendants."
-  (let* ((styles (node-styles node))
-         (padding (or (getf styles :padding) 0))
-         (gap (or (getf styles :gap) 0))
+  (let* ((props (node-props node))
+         (padding (or (getf props :padding) 0))
+         (gap (or (getf props :gap) 0))
          (vertical (vertical-p (node-type node)))
          (w (resolve-size node :w available-w))
          (content-w (- w (* 2 padding)))
@@ -154,16 +153,16 @@
         (dolist (child children)
           (measure-node child content-w (- available-h (* 2 padding))))
         (let* ((explicit-w (loop for c in children
-                                 for sw = (getf (node-styles c) :width)
+                                 for sw = (getf (node-props c) :width)
                                  when (numberp sw) sum sw))
                (total-gap (* gap (max 0 (1- n))))
                (remaining (- content-w explicit-w total-gap))
                (flex-count (count-if-not
-                            (lambda (c) (numberp (getf (node-styles c) :width)))
+                            (lambda (c) (numberp (getf (node-props c) :width)))
                             children))
                (flex-w (if (> flex-count 0) (max 0 (/ remaining flex-count)) 0)))
           (dolist (child children)
-            (let ((sw (getf (node-styles child) :width)))
+            (let ((sw (getf (node-props child) :width)))
               (measure-node child (if (numberp sw) sw flex-w)
                             (- available-h (* 2 padding)))))))
 
@@ -181,11 +180,11 @@
   "Set x, y for a node and all descendants. Sizes must already be computed."
   (setf (node-x node) x (node-y node) y)
 
-  (let* ((styles (node-styles node))
-         (padding (or (getf styles :padding) 0))
-         (gap (or (getf styles :gap) 0))
-         (align (or (getf styles :align) :start))
-         (justify (or (getf styles :justify) :start))
+  (let* ((props (node-props node))
+         (padding (or (getf props :padding) 0))
+         (gap (or (getf props :gap) 0))
+         (align (or (getf props :align) :start))
+         (justify (or (getf props :justify) :start))
          (vertical (vertical-p (node-type node)))
          (content-w (- (node-width node) (* 2 padding)))
          (content-h (- (node-height node) (* 2 padding)))
@@ -247,30 +246,30 @@
 (defun layout (ui)
   "Recompute layout and apply positions/sizes."
   (let* ((root (ui-root ui))
-         (styles (node-styles root))
-         (x (or (getf styles :x) 0))
-         (y (or (getf styles :y) 0))
-         (w (or (getf styles :width) (window-width)))
-         (h (or (getf styles :height) (window-height))))
+         (props (node-props root))
+         (x (or (getf props :x) 0))
+         (y (or (getf props :y) 0))
+         (w (or (getf props :width) (window-width)))
+         (h (or (getf props :height) (window-height))))
     (measure-node root w h)
     (position-node root x y)
     (apply-layout root)))
 
 (defun node-at (node x y &optional prop)
-  "Find the deepest node at (x, y). If PROP, only match nodes with that style property."
+  "Find the deepest node at (x, y). If PROP, only match nodes with that prop."
   (when (and (node-x node)
              (<= (node-x node) x (+ (node-x node) (node-width node)))
              (<= (node-y node) y (+ (node-y node) (node-height node))))
     (or (some (lambda (child) (node-at child x y prop))
               (reverse (node-children node)))
-        (when (or (null prop) (getf (node-styles node) prop))
+        (when (or (null prop) (getf (node-props node) prop))
           node))))
 
 (defun dispatch-event (ui event x y)
   "Find the node with EVENT handler at (x, y) and call it."
   (let ((node (node-at (ui-root ui) x y event)))
     (when node
-      (funcall (getf (node-styles node) event) node))))
+      (funcall (getf (node-props node) event) node))))
 
 (defun build-ui (root)
   "Create GPU elements and compute layout for a node tree."
@@ -281,11 +280,11 @@
 
 (defmacro defui (name &rest args)
   "Define a UI tree with full Lisp expressiveness."
-  (multiple-value-bind (styles children) (split-args args)
+  (multiple-value-bind (props children) (split-args args)
     `(progn
        (when (boundp ',name) (destroy-elements (symbol-value ',name)))
        (defparameter ,name
-         (build-ui (vstack ,@styles ,@children)))
+         (build-ui (vstack ,@props ,@children)))
        (handle-input (type key mods x y)
          (case type
            (:mouse-down (dispatch-event ,name :on-click x y)))))))

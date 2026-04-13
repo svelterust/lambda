@@ -77,8 +77,13 @@ fn rects_lock() -> MutexGuard<'static, Rects> {
         .unwrap_or_else(|e| e.into_inner())
 }
 
-/// Convert packed #xRRGGBBAA to [0.0..1.0] floats.
+/// Convert packed #xRRGGBB or #xRRGGBBAA to [0.0..1.0] floats.
 fn rgba_to_f32(rgba: u32) -> [f32; 4] {
+    let rgba = if rgba <= 0xFFFFFF {
+        (rgba << 8) | 0xFF
+    } else {
+        rgba
+    };
     [
         ((rgba >> 24) & 0xFF) as f32 / 255.0,
         ((rgba >> 16) & 0xFF) as f32 / 255.0,

@@ -23,7 +23,11 @@
   (:unix (:default "liblambda")))
 (cffi:use-foreign-library liblambda)
 
+;;; Thin wrapper: auto-prepend "lambda_" to the C name
+(defmacro defcfun (c-name lisp-name return-type &rest args)
+  `(cffi:defcfun (,(concatenate 'string "lambda_" c-name) ,lisp-name) ,return-type ,@args))
+
 ;; Run
-(cffi:defcfun ("lambda_run" run) :void)
+(defcfun "run" run :void)
 (bt:make-thread #'run :name "lambda")
 

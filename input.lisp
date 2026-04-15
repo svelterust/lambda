@@ -8,9 +8,9 @@
   (x          :float)
   (y          :float))
 
-(cffi:defcfun ("lambda_input_buf_ptr"        %input-buf-ptr)        :pointer)
-(cffi:defcfun ("lambda_input_write_index"    %input-write-index)    :uint32)
-(cffi:defcfun ("lambda_input_set_read_index" %input-set-read-index) :void (n :uint32))
+(defcfun "input_buf_ptr"        %input-buf-ptr        :pointer)
+(defcfun "input_write_index"    %input-write-index    :uint32)
+(defcfun "input_set_read_index" %input-set-read-index :void (n :uint32))
 
 ;;; Lookup tables (numeric -> keyword)
 (defvar *event-types*
@@ -80,7 +80,7 @@ Returns a list of (type key mods x y) lists with keyword symbols."
     (nreverse events)))
 
 ;;; Input
-(cffi:defcfun ("lambda_set_input_callback" %set-input-callback) :void (cb :pointer))
+(defcfun "set_input_callback" %set-input-callback :void (cb :pointer))
 
 (defmacro handle-input ((type key mods x y) &body body)
   "Define the input handler. BODY runs once per input event with TYPE, KEY as

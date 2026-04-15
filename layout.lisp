@@ -1,7 +1,7 @@
 (in-package :lambda)
 
-(cffi:defcfun ("lambda_window_width"  window-width)  :uint32)
-(cffi:defcfun ("lambda_window_height" window-height) :uint32)
+(defcfun "window_width"  window-width  :uint32)
+(defcfun "window_height" window-height :uint32)
 
 (defstruct node
   "One element in the UI tree."
